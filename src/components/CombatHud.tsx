@@ -72,8 +72,8 @@ export const CombatHud: React.FC<CombatHudProps> = ({
                 <path d="M12 2L20 7V15L12 22L4 15V7L12 2Z" fill="#083344" stroke="#06b6d4" strokeWidth="2" />
                 <path d="M12 6V17" stroke="#67e8f9" strokeWidth="2" />
               </svg>
-              <span className="font-display text-xs font-bold tracking-wider text-cyan-300">
-                CYBER KNIGHT
+              <span className="font-display text-xs font-bold tracking-wider text-sky-300">
+                MURMILLO
               </span>
             </div>
             <div className="flex items-baseline gap-2">
@@ -110,11 +110,11 @@ export const CombatHud: React.FC<CombatHudProps> = ({
 
         {/* Center Match Clock & Combo Counter */}
         <div className="hidden sm:flex flex-col items-center pt-1">
-          <span className="font-mono-num text-xs text-slate-400 tracking-wider">
+          <span className="font-mono-num text-xs text-amber-100 bg-[#140d07]/75 px-2.5 py-0.5 rounded tracking-wider">
             {Math.floor(hud.elapsedTime)}s
           </span>
           {hud.combo > 1 && (
-            <span className="font-display text-lg font-bold text-amber-400 tracking-wide mt-0.5">
+            <span className="font-display text-lg font-bold text-amber-300 tracking-wide mt-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
               {hud.combo}x COMBO
             </span>
           )}
@@ -135,7 +135,7 @@ export const CombatHud: React.FC<CombatHudProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-display text-xs font-bold tracking-wider text-rose-300">
-                  SHADOW RONIN
+                  SECUTOR
                 </span>
                 <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" aria-hidden="true">
                   <path d="M12 2L20 7V15L12 22L4 15V7L12 2Z" fill="#4c0519" stroke="#f43f5e" strokeWidth="2" />
@@ -265,7 +265,7 @@ export const CombatHud: React.FC<CombatHudProps> = ({
           <div />
         )}
 
-        <div className="text-[11px] text-slate-400 tracking-wide">
+        <div className="text-[11px] text-amber-100 bg-[#140d07]/80 px-3 py-1 rounded-md tracking-wide">
           A / D Move · Shift Dash · Space / Click Strike · E / Right-Click Parry · P Pause
         </div>
       </div>

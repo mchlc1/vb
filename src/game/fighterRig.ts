@@ -33,10 +33,11 @@ export interface FighterRig {
   dispose: () => void;
 }
 
-export function createCyberKnightRig(
-  primaryColor: number,
-  energyColor: number,
+export function createGladiatorRig(
+  tunicColor: number,
+  crestColor: number,
   armorBump: THREE.Texture,
+  scutumMap: THREE.Texture,
   contactShadowMap: THREE.Texture,
   enableShadows: boolean
 ): FighterRig {
@@ -53,52 +54,66 @@ export function createCyberKnightRig(
     return m;
   };
 
-  // PBR Materials with clear roughness contrast (>= 0.25 delta between matte chassis & polished armor)
-  const chassisMat = trackMat(
+  // Authentic 80 AD Roman Materials with realistic roughness contrast (>= 0.25 delta)
+  const skinMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0x161b26,
-      roughness: 0.72,
-      metalness: 0.35,
+      color: 0xc58f68,
+      roughness: 0.78,
+      metalness: 0.02,
+    })
+  );
+
+  const leatherMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x4b2b16,
+      roughness: 0.74,
+      metalness: 0.06,
       bumpMap: armorBump,
-      bumpScale: 0.015,
+      bumpScale: 0.012,
+    })
+  );
+
+  const clothMat = trackMat(
+    new THREE.MeshStandardMaterial({
+      color: tunicColor,
+      roughness: 0.88,
+      metalness: 0.02,
     })
   );
 
   const armorMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: primaryColor,
-      roughness: 0.24,
+      color: 0xb68a46, // Polished Roman bronze
+      roughness: 0.26,
       metalness: 0.88,
       bumpMap: armorBump,
-      bumpScale: 0.01,
+      bumpScale: 0.014,
     })
   );
 
-  const trimMat = trackMat(
+  const steelMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: 0xcbd5e1,
-      roughness: 0.18,
-      metalness: 0.95,
+      color: 0xc2c7ce,
+      roughness: 0.2,
+      metalness: 0.94,
     })
   );
 
   const coreMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: energyColor,
-      emissive: energyColor,
-      emissiveIntensity: 1.6,
-      roughness: 0.2,
-      metalness: 0.1,
+      color: crestColor, // Horsehair crest & faction trim
+      roughness: 0.82,
+      metalness: 0.05,
     })
   );
 
   const swordEdgeMat = trackMat(
     new THREE.MeshStandardMaterial({
-      color: energyColor,
-      emissive: energyColor,
-      emissiveIntensity: 2.0,
-      roughness: 0.15,
-      metalness: 0.2,
+      color: 0xdbe2ea,
+      emissive: 0x3b2a14,
+      emissiveIntensity: 0.15,
+      roughness: 0.14,
+      metalness: 0.96,
     })
   );
 
@@ -108,7 +123,7 @@ export function createCyberKnightRig(
     new THREE.MeshBasicMaterial({
       map: contactShadowMap,
       transparent: true,
-      opacity: 0.52,
+      opacity: 0.56,
       depthWrite: false,
     })
   );
@@ -117,25 +132,38 @@ export function createCyberKnightRig(
   contactShadow.position.y = 0.015;
   root.add(contactShadow);
 
-  // 1. Hips & Pelvis (Pivot y = 0.98m)
+  // 1. Hips, Subligaculum Loincloth & Leather Balteus Belt (Pivot y = 0.98m)
   const hips = new THREE.Group();
   hips.position.y = 0.98;
   root.add(hips);
 
-  const pelvisMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.24, 0.2, 0.22, 8)), chassisMat);
-  hips.add(pelvisMesh);
+  const subligaculum = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.23, 0.27, 0.28, 12)),
+    clothMat
+  );
+  hips.add(subligaculum);
 
-  const beltPlate = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.46, 0.1, 0.3)), armorMat);
-  beltPlate.position.y = 0.04;
-  hips.add(beltPlate);
+  const beltMesh = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.245, 0.245, 0.11, 12)),
+    leatherMat
+  );
+  beltMesh.position.y = 0.09;
+  hips.add(beltMesh);
 
-  // 2. Articulated Legs (Thigh -> Knee -> Shin -> Boot)
-  const buildLeg = (sideX: number) => {
+  const beltBuckle = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.11, 0.08, 0.06)), armorMat);
+  beltBuckle.position.set(0, 0.09, 0.23);
+  hips.add(beltBuckle);
+
+  // 2. Articulated Muscular Legs + Bronze Ocrea Shin Greave + Caligae Sandals
+  const buildLeg = (sideX: number, hasBronzeGreave: boolean) => {
     const thigh = new THREE.Group();
     thigh.position.set(sideX, -0.06, 0);
     hips.add(thigh);
 
-    const thighMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.115, 0.095, 0.44, 10)), armorMat);
+    const thighMesh = new THREE.Mesh(
+      trackGeo(new THREE.CylinderGeometry(0.11, 0.09, 0.44, 10)),
+      skinMat
+    );
     thighMesh.position.y = -0.22;
     thigh.add(thighMesh);
 
@@ -143,149 +171,214 @@ export function createCyberKnightRig(
     knee.position.y = -0.45;
     thigh.add(knee);
 
-    const kneeCap = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.15, 0.14, 0.18)), trimMat);
-    kneeCap.position.z = 0.03;
+    const kneeCap = new THREE.Mesh(
+      trackGeo(new THREE.SphereGeometry(0.088, 10, 10)),
+      hasBronzeGreave ? armorMat : skinMat
+    );
     knee.add(kneeCap);
 
-    const shinMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.095, 0.075, 0.42, 10)), chassisMat);
+    const shinMesh = new THREE.Mesh(
+      trackGeo(new THREE.CylinderGeometry(0.088, 0.068, 0.42, 10)),
+      skinMat
+    );
     shinMesh.position.y = -0.21;
     knee.add(shinMesh);
 
-    const greavePlate = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.13, 0.34, 0.1)), armorMat);
-    greavePlate.position.set(0, -0.2, 0.055);
-    knee.add(greavePlate);
+    if (hasBronzeGreave) {
+      const ocrea = new THREE.Mesh(
+        trackGeo(new THREE.CylinderGeometry(0.094, 0.076, 0.36, 10, 1, false, -Math.PI * 0.45, Math.PI * 0.9)),
+        armorMat
+      );
+      ocrea.position.y = -0.2;
+      knee.add(ocrea);
+    } else {
+      const shinWrap = new THREE.Mesh(
+        trackGeo(new THREE.CylinderGeometry(0.09, 0.074, 0.26, 10)),
+        leatherMat
+      );
+      shinWrap.position.y = -0.25;
+      knee.add(shinWrap);
+    }
 
-    const bootMesh = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.15, 0.11, 0.28)), trimMat);
-    bootMesh.position.set(0, -0.44, 0.05);
-    knee.add(bootMesh);
+    const sandalFoot = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.13, 0.09, 0.27)), leatherMat);
+    sandalFoot.position.set(0, -0.44, 0.045);
+    knee.add(sandalFoot);
 
     return { thigh, knee };
   };
 
-  const leftLeg = buildLeg(-0.17);
-  const rightLeg = buildLeg(0.17);
+  const leftLeg = buildLeg(-0.16, true);
+  const rightLeg = buildLeg(0.16, false);
 
-  // 3. Spine & Beveled Chest Armor (ExtrudeGeometry)
+  // 3. Torso, Sculpted Bare Chest, Diagonal Leather Balteus & Shoulder Galerus
   const spine = new THREE.Group();
   spine.position.y = 0.14;
   hips.add(spine);
 
-  const abdomen = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.2, 0.18, 0.28, 8)), chassisMat);
-  abdomen.position.y = 0.14;
+  const abdomen = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.21, 0.19, 0.3, 10)),
+    skinMat
+  );
+  abdomen.position.y = 0.15;
   spine.add(abdomen);
 
   const chestShape = new THREE.Shape();
-  chestShape.moveTo(-0.34, 0);
-  chestShape.lineTo(0.34, 0);
-  chestShape.lineTo(0.4, 0.36);
-  chestShape.lineTo(0.22, 0.5);
-  chestShape.lineTo(-0.22, 0.5);
-  chestShape.lineTo(-0.4, 0.36);
+  chestShape.moveTo(-0.31, 0);
+  chestShape.lineTo(0.31, 0);
+  chestShape.lineTo(0.36, 0.36);
+  chestShape.lineTo(0.2, 0.49);
+  chestShape.lineTo(-0.2, 0.49);
+  chestShape.lineTo(-0.36, 0.36);
   chestShape.closePath();
 
   const chestGeo = trackGeo(
     new THREE.ExtrudeGeometry(chestShape, {
-      depth: 0.34,
+      depth: 0.28,
       bevelEnabled: true,
-      bevelThickness: 0.04,
+      bevelThickness: 0.045,
       bevelSize: 0.035,
       bevelSegments: 2,
     })
   );
   chestGeo.center();
-  const chestPlate = new THREE.Mesh(chestGeo, armorMat);
-  chestPlate.position.y = 0.48;
-  spine.add(chestPlate);
+  const chestTorso = new THREE.Mesh(chestGeo, skinMat);
+  chestTorso.position.y = 0.48;
+  spine.add(chestTorso);
 
-  // Reactor Core
-  const reactorRing = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(0.11, 0.024, 10, 20)), trimMat);
-  reactorRing.position.set(0, 0.52, 0.21);
-  spine.add(reactorRing);
+  // Diagonal leather harness + bronze pectoral disk (cardiophylax)
+  const balteusStrap = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.08, 0.68, 0.38)), leatherMat);
+  balteusStrap.position.set(0, 0.48, 0);
+  balteusStrap.rotation.z = 0.56;
+  spine.add(balteusStrap);
 
-  const reactorCore = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.085, 0.085, 0.05, 16)), coreMat);
-  reactorCore.rotation.x = Math.PI / 2;
-  reactorCore.position.set(0, 0.52, 0.21);
-  spine.add(reactorCore);
+  const pectoralPlate = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.11, 0.11, 0.04, 16)),
+    armorMat
+  );
+  pectoralPlate.rotation.x = Math.PI / 2;
+  pectoralPlate.position.set(0, 0.52, 0.185);
+  spine.add(pectoralPlate);
 
-  // 4. Neck & Faceted Knight Helmet with Visor
+  // Short Roman Shoulder Capelet in faction color for instant silhouette read
+  const shoulderSash = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.24, 0.32, 0.22, 10, 1, true, Math.PI * 0.65, Math.PI * 0.7)),
+    coreMat
+  );
+  shoulderSash.position.set(0, 0.6, -0.05);
+  spine.add(shoulderSash);
+
+  // 4. Neck & Historically Authentic Roman Gladiator Bronze Helmet (Galea / Murmillo with Crest & Cheek Guards)
   const neck = new THREE.Group();
   neck.position.y = 0.78;
   spine.add(neck);
 
-  const neckCol = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.1, 0.12, 0.12, 10)), chassisMat);
-  neckCol.position.y = 0.04;
+  const neckCol = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.095, 0.115, 0.13, 10)), skinMat);
+  neckCol.position.y = 0.05;
   neck.add(neckCol);
 
-  const helmetBase = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.32, 0.34, 0.36)), armorMat);
-  helmetBase.position.y = 0.24;
-  neck.add(helmetBase);
+  const helmetBowl = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.185, 16, 12)), armorMat);
+  helmetBowl.position.y = 0.25;
+  neck.add(helmetBowl);
 
-  const helmetCrest = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.08, 0.12, 0.42)), trimMat);
-  helmetCrest.position.set(0, 0.42, -0.02);
-  neck.add(helmetCrest);
+  // Broad rear/side gladiator helmet brim
+  const helmetBrim = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.24, 0.25, 0.03, 16)),
+    armorMat
+  );
+  helmetBrim.position.set(0, 0.17, -0.02);
+  helmetBrim.rotation.x = -0.15;
+  neck.add(helmetBrim);
 
-  const visorSlit = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.28, 0.065, 0.05)), coreMat);
-  visorSlit.position.set(0, 0.25, 0.175);
-  neck.add(visorSlit);
+  // Cheek guards (bucculae) & perforated bronze face guard
+  const facePlate = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.17, 0.155, 0.16, 12, 1, false, -Math.PI * 0.42, Math.PI * 0.84)), steelMat);
+  facePlate.position.set(0, 0.2, 0.02);
+  neck.add(facePlate);
 
-  // 5. Right Sword Arm Hierarchy (Pauldron -> Upper Arm -> Elbow -> Forearm -> Wrist -> Plasma Katana)
+  const eyeSlit = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.22, 0.032, 0.05)), leatherMat);
+  eyeSlit.position.set(0, 0.245, 0.165);
+  neck.add(eyeSlit);
+
+  // Horsehair Roman Crest (Crista)
+  const crestHolder = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.045, 0.06, 0.3)), armorMat);
+  crestHolder.position.set(0, 0.42, -0.01);
+  neck.add(crestHolder);
+
+  const horsehairCrest = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.065, 0.15, 0.38)), coreMat);
+  horsehairCrest.position.set(0, 0.49, -0.03);
+  neck.add(horsehairCrest);
+
+  // 5. Right Sword Arm (Bronze Galerus Pauldron + Segmented Manica + Roman Gladius Short Sword)
   const rShoulder = new THREE.Group();
-  rShoulder.position.set(0.46, 0.66, 0);
+  rShoulder.position.set(0.43, 0.65, 0);
   spine.add(rShoulder);
 
-  const rPauldron = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.24, 0.22, 0.32)), armorMat);
-  rPauldron.rotation.z = -0.25;
-  rShoulder.add(rPauldron);
+  const rGalerus = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.14, 0.17, 0.22, 10, 1, false, -Math.PI * 0.3, Math.PI * 0.8)),
+    armorMat
+  );
+  rGalerus.rotation.z = -0.3;
+  rShoulder.add(rGalerus);
 
-  const rUpperArm = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.085, 0.075, 0.34, 10)), chassisMat);
-  rUpperArm.position.y = -0.18;
+  const rUpperArm = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.085, 0.075, 0.33, 10)),
+    skinMat
+  );
+  rUpperArm.position.y = -0.17;
   rShoulder.add(rUpperArm);
 
   const rElbow = new THREE.Group();
-  rElbow.position.y = -0.36;
+  rElbow.position.y = -0.34;
   rShoulder.add(rElbow);
 
-  const rElbowJoint = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.085, 10, 10)), trimMat);
-  rElbow.add(rElbowJoint);
+  // Segmented Manica arm guard on forearm
+  const rManica = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.082, 0.068, 0.31, 10)),
+    leatherMat
+  );
+  rManica.position.y = -0.15;
+  rElbow.add(rManica);
 
-  const rForearm = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.075, 0.065, 0.32, 10)), armorMat);
-  rForearm.position.y = -0.16;
-  rElbow.add(rForearm);
+  const manicaBand = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(0.076, 0.015, 6, 12)), armorMat);
+  manicaBand.rotation.x = Math.PI / 2;
+  manicaBand.position.y = -0.14;
+  rElbow.add(manicaBand);
 
   const rWrist = new THREE.Group();
-  rWrist.position.y = -0.34;
+  rWrist.position.y = -0.32;
   rElbow.add(rWrist);
 
-  // Multi-part Energy Katana (Pommel + Hilt + Crossguard + Metallic Spine + Glowing Energy Blade)
-  const swordGroup = new THREE.Group();
-  swordGroup.rotation.x = Math.PI / 2.2;
-  rWrist.add(swordGroup);
+  // Historically Accurate Roman Gladius (Pommel + Ribbed Wood Grip + Hemispherical Guard + Broad Steel Blade)
+  const gladiusGroup = new THREE.Group();
+  gladiusGroup.rotation.x = Math.PI / 2.2;
+  rWrist.add(gladiusGroup);
 
-  const hilt = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.032, 0.032, 0.32, 10)), chassisMat);
-  hilt.position.y = 0.02;
-  swordGroup.add(hilt);
+  const grip = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.028, 0.028, 0.22, 10)), leatherMat);
+  grip.position.y = 0.02;
+  gladiusGroup.add(grip);
 
-  const pommel = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.048, 10, 10)), trimMat);
-  pommel.position.y = -0.15;
-  swordGroup.add(pommel);
+  const pommel = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.048, 10, 10)), armorMat);
+  pommel.position.y = -0.11;
+  gladiusGroup.add(pommel);
 
-  const crossguard = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.24, 0.045, 0.09)), trimMat);
-  crossguard.position.y = 0.19;
-  swordGroup.add(crossguard);
+  const handGuard = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.068, 12, 8)), armorMat);
+  handGuard.scale.set(1.2, 0.65, 1.0);
+  handGuard.position.y = 0.14;
+  gladiusGroup.add(handGuard);
 
-  const bladeSpine = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.03, 1.25, 0.055)), trimMat);
-  bladeSpine.position.set(0, 0.82, -0.015);
-  swordGroup.add(bladeSpine);
+  const bladeBody = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.022, 0.94, 0.085)), swordEdgeMat);
+  bladeBody.position.set(0, 0.62, 0);
+  gladiusGroup.add(bladeBody);
 
-  const bladeEdge = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.022, 1.32, 0.045)), swordEdgeMat);
-  bladeEdge.position.set(0, 0.85, 0.022);
-  swordGroup.add(bladeEdge);
+  const bladePoint = new THREE.Mesh(trackGeo(new THREE.ConeGeometry(0.045, 0.2, 4)), swordEdgeMat);
+  bladePoint.rotation.y = Math.PI / 4;
+  bladePoint.position.set(0, 1.18, 0);
+  gladiusGroup.add(bladePoint);
 
-  // Dynamic 3D Slash Arc Crescent aligned in the vertical swing plane (YZ in local spine space)
-  const slashGeo = trackGeo(new THREE.RingGeometry(1.08, 1.38, 28, 1, -Math.PI * 0.36, Math.PI * 0.72));
+  // Subtle Steel Motion Arc Crescent during active sword strike
+  const slashGeo = trackGeo(new THREE.RingGeometry(0.95, 1.24, 28, 1, -Math.PI * 0.36, Math.PI * 0.72));
   const slashArcMat = trackMat(
     new THREE.MeshBasicMaterial({
-      color: energyColor,
+      color: 0xfef3c7,
       transparent: true,
       opacity: 0,
       side: THREE.DoubleSide,
@@ -298,61 +391,64 @@ export function createCyberKnightRig(
   slashArcMesh.rotation.y = Math.PI / 2;
   spine.add(slashArcMesh);
 
-  // 6. Left Shield Arm + Hexagonal Energy Buckler
+  // 6. Left Shield Arm + Historically Accurate Rectangular Curved Roman Scutum Shield
   const lShoulder = new THREE.Group();
-  lShoulder.position.set(-0.46, 0.66, 0);
+  lShoulder.position.set(-0.43, 0.65, 0);
   spine.add(lShoulder);
 
-  const lPauldron = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.24, 0.22, 0.32)), armorMat);
-  lPauldron.rotation.z = 0.25;
-  lShoulder.add(lPauldron);
-
-  const lUpperArm = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.085, 0.075, 0.34, 10)), chassisMat);
-  lUpperArm.position.y = -0.18;
+  const lUpperArm = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.085, 0.075, 0.33, 10)),
+    skinMat
+  );
+  lUpperArm.position.y = -0.17;
   lShoulder.add(lUpperArm);
 
   const lElbow = new THREE.Group();
-  lElbow.position.y = -0.36;
+  lElbow.position.y = -0.34;
   lShoulder.add(lElbow);
 
-  const lForearm = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.075, 0.065, 0.32, 10)), armorMat);
-  lForearm.position.y = -0.16;
+  const lForearm = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.075, 0.064, 0.31, 10)),
+    leatherMat
+  );
+  lForearm.position.y = -0.15;
   lElbow.add(lForearm);
 
   const shieldMat = trackMat(
     new THREE.MeshPhysicalMaterial({
-      color: energyColor,
-      emissive: energyColor,
-      emissiveIntensity: 0.7,
+      color: 0xffffff,
+      map: scutumMap,
       transparent: true,
-      opacity: 0.32,
-      roughness: 0.15,
-      metalness: 0.1,
+      opacity: 0.96,
+      roughness: 0.58,
+      metalness: 0.14,
       side: THREE.DoubleSide,
-      depthWrite: false,
     })
   );
-  const shieldMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(0.46, 0.46, 0.04, 6)), shieldMat);
-  shieldMesh.rotation.x = Math.PI / 2;
-  shieldMesh.position.set(-0.08, -0.26, 0.18);
+  // Curved rectangular Roman Scutum held upright on the left forearm
+  const shieldMesh = new THREE.Mesh(
+    trackGeo(new THREE.CylinderGeometry(0.42, 0.42, 0.78, 14, 1, true, -Math.PI * 0.28, Math.PI * 0.56)),
+    shieldMat
+  );
+  shieldMesh.position.set(-0.08, -0.14, 0.16);
+  shieldMesh.rotation.set(0.78, -0.22, 0.12);
   lElbow.add(shieldMesh);
 
-  // Enable shadow casting across knight body meshes (except translucent effects & contact disc)
+  const umboBoss = new THREE.Mesh(trackGeo(new THREE.SphereGeometry(0.085, 12, 10)), armorMat);
+  umboBoss.scale.set(1, 1, 0.55);
+  umboBoss.position.set(0, 0, 0.42);
+  shieldMesh.add(umboBoss);
+
+  // Enable shadow casting across gladiator parts
   if (enableShadows) {
     root.traverse((obj) => {
-      if (
-        obj instanceof THREE.Mesh &&
-        obj !== contactShadow &&
-        obj !== slashArcMesh &&
-        obj !== shieldMesh
-      ) {
+      if (obj instanceof THREE.Mesh && obj !== contactShadow && obj !== slashArcMesh) {
         obj.castShadow = true;
         obj.receiveShadow = true;
       }
     });
   }
 
-  // Smooth pose target variables
   const updatePose = (
     fighter: FighterState,
     dt: number,
@@ -363,7 +459,6 @@ export function createCyberKnightRig(
     const p = getPhaseProgress(fighter);
     const speedNorm = Math.min(1, Math.abs(fighter.vx) / 5.5);
 
-    // Distance-synced walk gait (no skating!)
     const stride = Math.sin(fighter.walkDistance * 3.6) * (0.28 + speedNorm * 0.25);
     const hipBob = Math.abs(Math.cos(fighter.walkDistance * 3.6)) * 0.045 * speedNorm;
     const idleBreath = Math.sin(elapsed * 2.6 + (facingSign > 0 ? 0 : 1.5)) * 0.025;
@@ -376,14 +471,12 @@ export function createCyberKnightRig(
     let targetRElbowX = -0.95;
     let targetRWristX = 0.15;
     let targetRWristZ = 0;
-    let targetLShoulderX = -0.55;
-    let targetLElbowX = -0.9;
-    let targetShieldScale = 0.45;
-    let targetShieldOpacity = 0.2;
+    let targetLShoulderX = -0.5;
+    let targetLElbowX = -0.85;
+    let targetShieldScale = 0.84;
     let targetSlashOpacity = 0;
 
     if (fighter.phase === 'IDLE' && !fighter.isGuarding && armOverride?.hasArm) {
-      // Sword arm & fist follow the player's tracked arm and hand tilt in real time!
       targetRShoulderX = armOverride.shoulderPitch;
       targetRShoulderZ = armOverride.shoulderRoll;
       targetRElbowX = armOverride.elbowBend;
@@ -392,38 +485,35 @@ export function createCyberKnightRig(
     }
 
     if (fighter.phase === 'WINDUP') {
-      // Chamber blade backward cleanly before strike
       const w = Math.sin(p * Math.PI * 0.5);
       targetHipsY = 0.93;
       targetSpinePitch = -0.08 * w;
       targetSpineYaw = -0.65 * w;
-      targetRShoulderX = -2.25 * w - 0.3;
-      targetRShoulderZ = -0.55 * w;
+      targetRShoulderX = -2.2 * w - 0.3;
+      targetRShoulderZ = -0.5 * w;
       targetRElbowX = -1.1;
       targetRWristX = -0.25;
-      // Telegraph blade glow intensifies on bot windup
-      swordEdgeMat.emissiveIntensity = 2.0 + w * 2.8;
+      swordEdgeMat.emissiveIntensity = 0.25 + w * 0.9;
     } else if (fighter.phase === 'ACTIVE') {
-      // Fast snap across the exact strike arc so blade meets enemy chest at p >= 0.25
       const swingCurve = 1 - Math.pow(1 - p, 3);
       targetHipsY = 0.91;
       targetSpinePitch = 0.28;
       targetSpineYaw = THREE.MathUtils.lerp(-0.65, 0.72, swingCurve);
-      targetRShoulderX = THREE.MathUtils.lerp(-2.4, 0.68, swingCurve);
-      targetRShoulderZ = THREE.MathUtils.lerp(-0.55, 0.28, swingCurve);
+      targetRShoulderX = THREE.MathUtils.lerp(-2.35, 0.68, swingCurve);
+      targetRShoulderZ = THREE.MathUtils.lerp(-0.5, 0.28, swingCurve);
       targetRElbowX = THREE.MathUtils.lerp(-1.05, -0.18, swingCurve);
       targetRWristX = THREE.MathUtils.lerp(-0.2, 0.45, swingCurve);
-      targetSlashOpacity = Math.sin(p * Math.PI) * 0.85;
+      targetSlashOpacity = Math.sin(p * Math.PI) * 0.72;
       slashArcMesh.rotation.z = THREE.MathUtils.lerp(0.65, -0.55, swingCurve);
-      swordEdgeMat.emissiveIntensity = 4.6;
+      swordEdgeMat.emissiveIntensity = 0.95;
     } else if (fighter.phase === 'RECOVERY') {
       const rec = p;
       targetSpinePitch = THREE.MathUtils.lerp(0.24, 0.08, rec);
       targetSpineYaw = THREE.MathUtils.lerp(0.6, -0.25, rec);
       targetRShoulderX = THREE.MathUtils.lerp(0.55, -0.45, rec);
       targetRElbowX = THREE.MathUtils.lerp(-0.2, -0.95, rec);
-      targetSlashOpacity = (1 - rec) * 0.25;
-      swordEdgeMat.emissiveIntensity = 2.2;
+      targetSlashOpacity = (1 - rec) * 0.22;
+      swordEdgeMat.emissiveIntensity = 0.2;
     } else if (fighter.phase === 'STUNNED') {
       const recoil = Math.sin(p * Math.PI);
       targetHipsY = 0.94;
@@ -432,31 +522,32 @@ export function createCyberKnightRig(
       targetRShoulderX = 0.25;
       targetRShoulderZ = -0.75;
       targetRElbowX = -0.35;
-      swordEdgeMat.emissiveIntensity = 1.0;
+      swordEdgeMat.emissiveIntensity = 0.05;
     } else if (fighter.phase === 'KO') {
       targetHipsY = 0.45;
       targetSpinePitch = -1.1;
       targetRShoulderX = 0.5;
       targetRShoulderZ = -0.9;
-      swordEdgeMat.emissiveIntensity = 0.4;
+      swordEdgeMat.emissiveIntensity = 0;
     } else if (fighter.isGuarding) {
-      // Raised hexagonal energy shield parry guard
-      targetHipsY = 0.93;
-      targetSpinePitch = 0.14;
-      targetSpineYaw = 0.35;
-      targetLShoulderX = -1.18;
-      targetLElbowX = -0.65;
-      targetRShoulderX = -0.75;
+      // Raised Roman Scutum shield wall guard
+      targetHipsY = 0.92;
+      targetSpinePitch = 0.12;
+      targetSpineYaw = 0.42;
+      targetLShoulderX = -1.1;
+      targetLElbowX = -0.58;
+      targetRShoulderX = -0.78;
       targetRElbowX = -1.25;
-      targetShieldScale = 1.15;
-      targetShieldOpacity = fighter.guardTimer <= 0.26 ? 0.78 : 0.48;
-      shieldMat.emissiveIntensity = fighter.guardTimer <= 0.26 ? 2.4 : 1.1;
-      swordEdgeMat.emissiveIntensity = 2.0;
+      targetShieldScale = 1.05;
+      shieldMesh.rotation.x = THREE.MathUtils.damp(shieldMesh.rotation.x, 1.48, 18, dt);
+      shieldMesh.rotation.y = THREE.MathUtils.damp(shieldMesh.rotation.y, 0.05, 18, dt);
+      swordEdgeMat.emissiveIntensity = 0.2;
     } else {
-      swordEdgeMat.emissiveIntensity = 1.8 + Math.sin(elapsed * 4) * 0.2;
+      shieldMesh.rotation.x = THREE.MathUtils.damp(shieldMesh.rotation.x, 0.78, 16, dt);
+      shieldMesh.rotation.y = THREE.MathUtils.damp(shieldMesh.rotation.y, -0.22, 16, dt);
+      swordEdgeMat.emissiveIntensity = 0.14;
     }
 
-    // Crisp exponential damping (much faster during ACTIVE so animation never lags hitbox!)
     const poseLambda = fighter.phase === 'ACTIVE' ? 42 : fighter.phase === 'WINDUP' ? 28 : 16;
 
     hips.position.y = THREE.MathUtils.damp(hips.position.y, targetHipsY, poseLambda, dt);
@@ -472,29 +563,28 @@ export function createCyberKnightRig(
     lShoulder.rotation.x = THREE.MathUtils.damp(lShoulder.rotation.x, targetLShoulderX, 18, dt);
     lElbow.rotation.x = THREE.MathUtils.damp(lElbow.rotation.x, targetLElbowX, 18, dt);
 
-    // Legs stride & knee bend
     const baseStanceAngle = fighter.phase === 'ACTIVE' ? 0.38 : 0.14;
     leftLeg.thigh.rotation.x = THREE.MathUtils.damp(leftLeg.thigh.rotation.x, -baseStanceAngle + stride, 16, dt);
     rightLeg.thigh.rotation.x = THREE.MathUtils.damp(rightLeg.thigh.rotation.x, baseStanceAngle - stride, 16, dt);
     leftLeg.knee.rotation.x = THREE.MathUtils.damp(leftLeg.knee.rotation.x, 0.28 + Math.max(0, -stride) * 0.6, 16, dt);
     rightLeg.knee.rotation.x = THREE.MathUtils.damp(rightLeg.knee.rotation.x, 0.24 + Math.max(0, stride) * 0.6, 16, dt);
 
-    // Shield & slash arc opacity/scale
     const sScale = THREE.MathUtils.damp(shieldMesh.scale.x, targetShieldScale, 20, dt);
-    shieldMesh.scale.set(sScale, 1, sScale);
-    shieldMat.opacity = THREE.MathUtils.damp(shieldMat.opacity, targetShieldOpacity, 20, dt);
+    shieldMesh.scale.set(sScale, sScale, sScale);
     slashArcMat.opacity = targetSlashOpacity;
 
-    // White emissive hit flash (40-90ms)
     if (fighter.hitFlashTimer > 0) {
-      armorMat.emissive.setHex(0xffffff);
-      armorMat.emissiveIntensity = 1.6;
+      armorMat.emissive.setHex(0xffe0a0);
+      armorMat.emissiveIntensity = 1.4;
+      skinMat.emissive.setHex(0xffffff);
+      skinMat.emissiveIntensity = 0.85;
     } else {
       armorMat.emissive.setHex(0x000000);
       armorMat.emissiveIntensity = 0;
+      skinMat.emissive.setHex(0x000000);
+      skinMat.emissiveIntensity = 0;
     }
 
-    // Position & facing
     root.position.x = fighter.x;
     root.rotation.y = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2;
   };

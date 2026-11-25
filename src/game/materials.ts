@@ -6,66 +6,65 @@ export interface ProceduralTextureSet {
   travertineMap: THREE.CanvasTexture;
   travertineBump: THREE.CanvasTexture;
   armorWeaveBump: THREE.CanvasTexture;
+  scutumMap: THREE.CanvasTexture;
   contactShadowMap: THREE.CanvasTexture;
   dispose: () => void;
 }
 
 export function createProceduralTextures(maxAnisotropy: number): ProceduralTextureSet {
-  // 1. Colosseum Gladiator Sand Floor Albedo (Warm compacted arena sand + stone seal & duel line)
+  // 1. 80 AD Colosseum Harena Sand Floor Albedo (Warm golden compacted sand + raked tracks & timber hypogeum hatches)
   const floorCanvas = document.createElement('canvas');
   floorCanvas.width = 1024;
   floorCanvas.height = 1024;
   const fCtx = floorCanvas.getContext('2d')!;
 
   const sandGrad = fCtx.createRadialGradient(512, 512, 40, 512, 512, 512);
-  sandGrad.addColorStop(0, '#c8ab7c');
-  sandGrad.addColorStop(0.58, '#b08f60');
-  sandGrad.addColorStop(0.88, '#8a6d45');
-  sandGrad.addColorStop(1, '#6f5637');
+  sandGrad.addColorStop(0, '#d6b47e');
+  sandGrad.addColorStop(0.55, '#c19a61');
+  sandGrad.addColorStop(0.86, '#9c7848');
+  sandGrad.addColorStop(1, '#7c5d36');
   fCtx.fillStyle = sandGrad;
   fCtx.fillRect(0, 0, 1024, 1024);
 
-  // Subtle compacted sand grain speckles & raked arcs
-  for (let i = 0; i < 4200; i++) {
-    const x = (Math.sin(i * 12.9898) * 43758.5453) % 1;
-    const y = (Math.sin(i * 78.233) * 43758.5453) % 1;
-    const px = Math.abs(x) * 1024;
-    const py = Math.abs(y) * 1024;
-    fCtx.fillStyle = i % 2 === 0 ? 'rgba(255, 240, 210, 0.08)' : 'rgba(62, 44, 24, 0.1)';
-    fCtx.fillRect(px, py, 2.5, 2.5);
+  // Subtle sand grain speckles & footprint raked arcs
+  for (let i = 0; i < 5200; i++) {
+    const x = Math.abs((Math.sin(i * 12.9898) * 43758.5453) % 1) * 1024;
+    const y = Math.abs((Math.sin(i * 78.233) * 43758.5453) % 1) * 1024;
+    fCtx.fillStyle = i % 2 === 0 ? 'rgba(255, 240, 204, 0.1)' : 'rgba(66, 44, 20, 0.12)';
+    fCtx.fillRect(x, y, 2.5, 2.5);
   }
 
-  // Carved Travertine Concentric Arena Rings
+  // Concentric raked sand rings around the duel circle
   const cx = 512;
   const cy = 512;
-  const ringRadii = [145, 275, 410, 478];
+  const ringRadii = [148, 285, 420, 480];
   ringRadii.forEach((r, idx) => {
     fCtx.beginPath();
     fCtx.arc(cx, cy, r, 0, Math.PI * 2);
     fCtx.strokeStyle =
-      idx === 2 ? 'rgba(235, 215, 178, 0.42)' : 'rgba(90, 68, 42, 0.34)';
-    fCtx.lineWidth = idx === 2 ? 7 : 4;
+      idx === 2 ? 'rgba(232, 204, 158, 0.34)' : 'rgba(84, 58, 30, 0.25)';
+    fCtx.lineWidth = idx === 2 ? 6 : 3;
     fCtx.stroke();
   });
 
-  // Subtle Roman geometric center rosette
-  fCtx.strokeStyle = 'rgba(92, 69, 41, 0.28)';
-  fCtx.lineWidth = 3;
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    fCtx.beginPath();
-    fCtx.moveTo(cx + Math.cos(a) * 60, cy + Math.sin(a) * 60);
-    fCtx.lineTo(cx + Math.cos(a) * 410, cy + Math.sin(a) * 410);
-    fCtx.stroke();
-  }
-
-  // Center Duelist Lane Marker
-  fCtx.strokeStyle = 'rgba(245, 196, 110, 0.35)';
-  fCtx.lineWidth = 4;
-  fCtx.beginPath();
-  fCtx.moveTo(cx - 410, cy);
-  fCtx.lineTo(cx + 410, cy);
-  fCtx.stroke();
+  // Subtle wooden hypogeum trapdoor hatch outlines beneath the sand
+  const drawHatch = (hx: number, hy: number, hw: number, hh: number) => {
+    fCtx.fillStyle = 'rgba(72, 48, 26, 0.22)';
+    fCtx.fillRect(hx - hw / 2, hy - hh / 2, hw, hh);
+    fCtx.strokeStyle = 'rgba(54, 34, 16, 0.38)';
+    fCtx.lineWidth = 2;
+    fCtx.strokeRect(hx - hw / 2, hy - hh / 2, hw, hh);
+    for (let p = 1; p < 4; p++) {
+      const py = hy - hh / 2 + (hh / 4) * p;
+      fCtx.beginPath();
+      fCtx.moveTo(hx - hw / 2, py);
+      fCtx.lineTo(hx + hw / 2, py);
+      fCtx.stroke();
+    }
+  };
+  drawHatch(cx - 190, cy - 175, 76, 52);
+  drawHatch(cx + 190, cy - 175, 76, 52);
+  drawHatch(cx, cy - 235, 84, 54);
 
   const arenaFloorMap = new THREE.CanvasTexture(floorCanvas);
   arenaFloorMap.colorSpace = THREE.SRGBColorSpace;
@@ -78,10 +77,10 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   const bCtx = bumpCanvas.getContext('2d')!;
   bCtx.fillStyle = '#808080';
   bCtx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 3000; i++) {
+  for (let i = 0; i < 3400; i++) {
     const px = Math.abs((Math.sin(i * 45.164) * 43758.5453) % 1) * 512;
     const py = Math.abs((Math.sin(i * 93.719) * 43758.5453) % 1) * 512;
-    bCtx.fillStyle = i % 2 === 0 ? '#9c9c9c' : '#646464';
+    bCtx.fillStyle = i % 2 === 0 ? '#9e9e9e' : '#626262';
     bCtx.fillRect(px, py, 2, 2);
   }
   const arenaFloorBump = new THREE.CanvasTexture(bumpCanvas);
@@ -91,19 +90,19 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   arenaFloorBump.repeat.set(3, 3);
   arenaFloorBump.anisotropy = maxAnisotropy;
 
-  // 3. Travertine Ashlar Stone Masonry Texture (Albedo + Bump)
+  // 3. Roman Travertine Ashlar Stone Masonry Texture (Albedo + Bump)
   const travCanvas = document.createElement('canvas');
   travCanvas.width = 512;
   travCanvas.height = 512;
   const tCtx = travCanvas.getContext('2d')!;
-  tCtx.fillStyle = '#b9a68a';
+  tCtx.fillStyle = '#bca788';
   tCtx.fillRect(0, 0, 512, 512);
 
   const travBumpCanvas = document.createElement('canvas');
   travBumpCanvas.width = 512;
   travBumpCanvas.height = 512;
   const tbCtx = travBumpCanvas.getContext('2d')!;
-  tbCtx.fillStyle = '#909090';
+  tbCtx.fillStyle = '#8e8e8e';
   tbCtx.fillRect(0, 0, 512, 512);
 
   const rows = 8;
@@ -115,11 +114,11 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
     for (let c = -1; c <= cols; c++) {
       const bx = c * colW + offset;
       const by = r * rowH;
-      const shade = 172 + ((r * 7 + c * 13) % 24) - 12;
-      tCtx.fillStyle = `rgb(${shade}, ${Math.round(shade * 0.9)}, ${Math.round(shade * 0.76)})`;
+      const shade = 186 + ((r * 7 + c * 13) % 26) - 13;
+      tCtx.fillStyle = `rgb(${shade}, ${Math.round(shade * 0.89)}, ${Math.round(shade * 0.73)})`;
       tCtx.fillRect(bx + 2, by + 2, colW - 4, rowH - 4);
 
-      tbCtx.fillStyle = '#a4a4a4';
+      tbCtx.fillStyle = '#a8a8a8';
       tbCtx.fillRect(bx + 3, by + 3, colW - 6, rowH - 6);
     }
   }
@@ -138,34 +137,74 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   travertineBump.repeat.set(2, 2);
   travertineBump.anisotropy = maxAnisotropy;
 
-  // 4. Brushed Carbon-Titanium Armor Micro-relief Bump Map
+  // 4. Hammered Bronze & Segmented Iron Armor Micro-relief Bump Map
   const weaveCanvas = document.createElement('canvas');
   weaveCanvas.width = 256;
   weaveCanvas.height = 256;
   const wCtx = weaveCanvas.getContext('2d')!;
-  wCtx.fillStyle = '#7c7c7c';
+  wCtx.fillStyle = '#7e7e7e';
   wCtx.fillRect(0, 0, 256, 256);
-  for (let y = 0; y < 256; y += 8) {
-    for (let x = 0; x < 256; x += 8) {
-      wCtx.fillStyle = (x + y) % 16 === 0 ? '#969696' : '#646464';
-      wCtx.fillRect(x, y, 6, 3);
-    }
+  for (let y = 0; y < 256; y += 16) {
+    wCtx.fillStyle = '#626262';
+    wCtx.fillRect(0, y, 256, 3);
+    wCtx.fillStyle = '#9a9a9a';
+    wCtx.fillRect(0, y + 3, 256, 2);
   }
   const armorWeaveBump = new THREE.CanvasTexture(weaveCanvas);
   armorWeaveBump.colorSpace = THREE.NoColorSpace;
   armorWeaveBump.wrapS = THREE.RepeatWrapping;
   armorWeaveBump.wrapT = THREE.RepeatWrapping;
-  armorWeaveBump.repeat.set(3, 3);
+  armorWeaveBump.repeat.set(2, 2);
 
-  // 5. Radial Contact Shadow Disc Texture
+  // 5. Historical Roman Scutum Shield Emblem Texture (Crimson base + golden-ochre wings & lightning)
+  const scutumCanvas = document.createElement('canvas');
+  scutumCanvas.width = 256;
+  scutumCanvas.height = 384;
+  const scCtx = scutumCanvas.getContext('2d')!;
+  scCtx.fillStyle = '#8e1b18';
+  scCtx.fillRect(0, 0, 256, 384);
+
+  // Brass border rim
+  scCtx.strokeStyle = '#d4a348';
+  scCtx.lineWidth = 14;
+  scCtx.strokeRect(7, 7, 242, 370);
+
+  // Golden Roman eagle wings & thunderbolts
+  scCtx.strokeStyle = '#e6b856';
+  scCtx.fillStyle = '#e6b856';
+  scCtx.lineWidth = 7;
+  for (const dir of [-1, 1]) {
+    scCtx.beginPath();
+    scCtx.moveTo(128, 192);
+    scCtx.quadraticCurveTo(128 + dir * 56, 118, 128 + dir * 88, 92);
+    scCtx.quadraticCurveTo(128 + dir * 68, 152, 128 + dir * 32, 192);
+    scCtx.fill();
+
+    scCtx.beginPath();
+    scCtx.moveTo(128, 192);
+    scCtx.quadraticCurveTo(128 + dir * 56, 266, 128 + dir * 88, 292);
+    scCtx.quadraticCurveTo(128 + dir * 68, 232, 128 + dir * 32, 192);
+    scCtx.fill();
+  }
+  // Lightning arrows
+  scCtx.beginPath();
+  scCtx.moveTo(52, 192);
+  scCtx.lineTo(204, 192);
+  scCtx.stroke();
+
+  const scutumMap = new THREE.CanvasTexture(scutumCanvas);
+  scutumMap.colorSpace = THREE.SRGBColorSpace;
+  scutumMap.anisotropy = maxAnisotropy;
+
+  // 6. Radial Contact Shadow Disc Texture
   const shadowCanvas = document.createElement('canvas');
   shadowCanvas.width = 128;
   shadowCanvas.height = 128;
   const sCtx = shadowCanvas.getContext('2d')!;
   const grad = sCtx.createRadialGradient(64, 64, 6, 64, 64, 60);
-  grad.addColorStop(0, 'rgba(20, 14, 8, 0.78)');
-  grad.addColorStop(0.55, 'rgba(20, 14, 8, 0.36)');
-  grad.addColorStop(1, 'rgba(20, 14, 8, 0)');
+  grad.addColorStop(0, 'rgba(26, 16, 6, 0.72)');
+  grad.addColorStop(0.55, 'rgba(26, 16, 6, 0.34)');
+  grad.addColorStop(1, 'rgba(26, 16, 6, 0)');
   sCtx.fillStyle = grad;
   sCtx.fillRect(0, 0, 128, 128);
   const contactShadowMap = new THREE.CanvasTexture(shadowCanvas);
@@ -177,6 +216,7 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
     travertineMap,
     travertineBump,
     armorWeaveBump,
+    scutumMap,
     contactShadowMap,
     dispose: () => {
       arenaFloorMap.dispose();
@@ -184,6 +224,7 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
       travertineMap.dispose();
       travertineBump.dispose();
       armorWeaveBump.dispose();
+      scutumMap.dispose();
       contactShadowMap.dispose();
     },
   };

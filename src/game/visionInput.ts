@@ -1,6 +1,7 @@
 import {
   computeArmTrackingAngles,
   computeBodyMoveDir,
+  evaluateArmGestures,
   type ArmTrackingTarget,
   type Landmark2D,
 } from './visionMath';
@@ -13,6 +14,7 @@ export interface VisionStateSnapshot {
   tiltMoveDir: number;
   isFist: boolean;
   isOpenPalm: boolean;
+  isShieldRaised: boolean;
   armTarget: ArmTrackingTarget;
 }
 
@@ -85,8 +87,15 @@ export class VisionController {
   private lastSwingTriggerMs = 0;
   private lastPoseMs = performance.now();
   private prevArmWrist: Landmark2D | null = null;
+  private prevHandWrist: Landmark2D | null = null;
+  private lastHandMs = performance.now();
   private latestHandLandmarks: MediaPipeLandmark[] | null = null;
   private latestArmPoints: {
+    shoulder: Landmark2D;
+    elbow: Landmark2D;
+    wrist: Landmark2D;
+  } | null = null;
+  private latestOffArmPoints: {
     shoulder: Landmark2D;
     elbow: Landmark2D;
     wrist: Landmark2D;
@@ -100,6 +109,7 @@ export class VisionController {
     tiltMoveDir: 0,
     isFist: false,
     isOpenPalm: false,
+    isShieldRaised: false,
     armTarget: { ...DEFAULT_ARM_TARGET },
   };
 
@@ -113,7 +123,21 @@ export class VisionController {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // 1. Draw Arm Skeleton (Shoulder -> Elbow -> Wrist)
+    // 1. Draw Off-Arm Skeleton (Shield Arm in Cyan/Blue)
+    if (this.latestOffArmPoints) {
+      const { shoulder, elbow, wrist } = this.latestOffArmPoints;
+      ctx.strokeStyle = this.state.isShieldRaised ? '#38bdf8' : 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(shoulder.x * w, shoulder.y * h);
+      ctx.lineTo(elbow.x * w, elbow.y * h);
+      ctx.lineTo(wrist.x * w, wrist.y * h);
+      ctx.stroke();
+    }
+
+    // 2. Draw Sword Arm Skeleton (Shoulder -> Elbow -> Wrist in Amber)
     if (this.latestArmPoints) {
       const { shoulder, elbow, wrist } = this.latestArmPoints;
       ctx.strokeStyle = '#f59e0b';
@@ -134,9 +158,13 @@ export class VisionController {
       }
     }
 
-    // 2. Draw Hand Landmarks
+    // 3. Draw Hand Landmarks
     if (this.latestHandLandmarks) {
-      ctx.fillStyle = this.state.isFist ? '#f43f5e' : '#06b6d4';
+      ctx.fillStyle = this.state.isShieldRaised
+        ? '#38bdf8'
+        : this.state.isFist
+        ? '#f43f5e'
+        : '#fbbf24';
       for (const pt of this.latestHandLandmarks) {
         ctx.beginPath();
         ctx.arc(pt.x * w, pt.y * h, 2.3, 0, Math.PI * 2);
@@ -185,7 +213,6 @@ export class VisionController {
         throw new Error('MediaPipe constructors unavailable');
       }
 
-      // Use modelComplexity: 0 (Lite) + parallel Promise.all for minimal latency
       this.hands = new window.Hands({
         locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
       });
@@ -209,16 +236,22 @@ export class VisionController {
       this.hands.onResults((res) => {
         const landmarks = res.multiHandLandmarks?.[0] ?? null;
         this.latestHandLandmarks = landmarks;
+        const nowMs = performance.now();
+        const handDt = Math.max(0.016, (nowMs - this.lastHandMs) / 1000);
+        this.lastHandMs = nowMs;
 
         if (!landmarks) {
           this.prevFist = false;
+          this.prevHandWrist = null;
           this.state = {
             ...this.state,
             active: true,
             isFist: false,
             isOpenPalm: false,
-            statusText: 'Arahkan tangan & lengan',
-            statusTone: 'neutral',
+            statusText: this.state.isShieldRaised
+              ? 'Angkat Tangan · Perisai!'
+              : 'Arahkan tangan & lengan',
+            statusTone: this.state.isShieldRaised ? 'guard' : 'neutral',
           };
           this.drawPipOverlay();
           onUpdate(this.state);
@@ -237,21 +270,51 @@ export class VisionController {
 
         const isFist = closedFingers >= 3;
         const isOpenPalm = closedFingers === 0;
-
-        // Edge-trigger strike when closing hand into a fist
-        if (isFist && !this.prevFist) {
-          this.pendingAttackEdge = true;
-          this.lastSwingTriggerMs = performance.now();
-        }
+        const justClosedFist = isFist && !this.prevFist;
         this.prevFist = isFist;
+
+        // Measure hand wrist speed in case Pose missed a quick swing
+        let handSpeed = this.state.armTarget.armSpeed;
+        if (this.prevHandWrist) {
+          const hs =
+            Math.hypot(wrist.x - this.prevHandWrist.x, wrist.y - this.prevHandWrist.y) / handDt;
+          handSpeed = Math.max(handSpeed, hs);
+        }
+        this.prevHandWrist = { x: wrist.x, y: wrist.y };
+
+        const gesture = evaluateArmGestures({
+          swordShoulder: this.latestArmPoints?.shoulder,
+          swordWrist: this.latestArmPoints?.wrist,
+          offShoulder: this.latestOffArmPoints?.shoulder,
+          offWrist: this.latestOffArmPoints?.wrist,
+          handWrist: wrist,
+          armSpeed: handSpeed,
+          isOpenPalm,
+          isFist,
+          justClosedFist,
+        });
+
+        if (gesture.shouldSwing && nowMs - this.lastSwingTriggerMs > 260) {
+          this.pendingAttackEdge = true;
+          this.lastSwingTriggerMs = nowMs;
+        }
 
         this.state = {
           ...this.state,
           active: true,
           isFist,
           isOpenPalm,
-          statusText: isFist ? 'Kepal · Tebas!' : isOpenPalm ? 'Buka · Guard' : 'Siap',
-          statusTone: isFist ? 'attack' : isOpenPalm ? 'guard' : 'ready',
+          isShieldRaised: gesture.isShieldRaised,
+          statusText: gesture.shouldSwing
+            ? 'Ayun Lengan · Tebas!'
+            : gesture.isShieldRaised
+            ? 'Angkat Tangan · Perisai!'
+            : 'Siap Bertarung',
+          statusTone: gesture.shouldSwing
+            ? 'attack'
+            : gesture.isShieldRaised
+            ? 'guard'
+            : 'ready',
         };
         this.drawPipOverlay();
         onUpdate(this.state);
@@ -268,7 +331,7 @@ export class VisionController {
         this.state.moveLabel =
           moveDir < -0.15 ? '← Mundur' : moveDir > 0.15 ? 'Maju →' : 'Diam';
 
-        // 2. Arm Detection: select more active/visible arm (12-14-16 vs 11-13-15)
+        // 2. Sword Arm + Off-Arm Detection
         const rVis = (lm[12]?.visibility ?? 0) + (lm[14]?.visibility ?? 0) + (lm[16]?.visibility ?? 0);
         const lVis = (lm[11]?.visibility ?? 0) + (lm[13]?.visibility ?? 0) + (lm[15]?.visibility ?? 0);
 
@@ -276,6 +339,16 @@ export class VisionController {
         const shoulder = useRight ? lm[12] : lm[11];
         const elbow = useRight ? lm[14] : lm[13];
         const wrist = useRight ? lm[16] : lm[15];
+
+        const offShoulder = useRight ? lm[11] : lm[12];
+        const offElbow = useRight ? lm[13] : lm[14];
+        const offWrist = useRight ? lm[15] : lm[16];
+
+        if (offShoulder && offElbow && offWrist && (offWrist.visibility ?? 0) > 0.35) {
+          this.latestOffArmPoints = { shoulder: offShoulder, elbow: offElbow, wrist: offWrist };
+        } else {
+          this.latestOffArmPoints = null;
+        }
 
         const nowMs = performance.now();
         const poseDt = Math.max(0.016, (nowMs - this.lastPoseMs) / 1000);
@@ -297,19 +370,38 @@ export class VisionController {
           this.prevArmWrist = { x: wrist.x, y: wrist.y };
           this.state.armTarget = armTarget;
 
-          // Brisk arm swing while holding a fist also triggers a strike!
-          if (
-            this.state.isFist &&
-            armTarget.armSpeed > 1.85 &&
-            nowMs - this.lastSwingTriggerMs > 280
-          ) {
+          // Evaluate raised-hand shield guard vs arm-swing sword strike directly from Pose + Hand!
+          const gesture = evaluateArmGestures({
+            swordShoulder: shoulder,
+            swordWrist: wrist,
+            offShoulder: this.latestOffArmPoints?.shoulder,
+            offWrist: this.latestOffArmPoints?.wrist,
+            handWrist,
+            armSpeed: armTarget.armSpeed,
+            isOpenPalm: this.state.isOpenPalm,
+            isFist: this.state.isFist,
+            justClosedFist: false,
+          });
+
+          this.state.isShieldRaised = gesture.isShieldRaised;
+
+          if (gesture.shouldSwing && nowMs - this.lastSwingTriggerMs > 260) {
             this.pendingAttackEdge = true;
             this.lastSwingTriggerMs = nowMs;
+            this.state.statusText = 'Ayun Lengan · Tebas!';
+            this.state.statusTone = 'attack';
+          } else if (gesture.isShieldRaised) {
+            this.state.statusText = 'Angkat Tangan · Perisai!';
+            this.state.statusTone = 'guard';
+          } else {
+            this.state.statusText = 'Siap Bertarung';
+            this.state.statusTone = 'ready';
           }
         } else {
           this.latestArmPoints = null;
           this.prevArmWrist = null;
           this.state.armTarget = { ...DEFAULT_ARM_TARGET };
+          this.state.isShieldRaised = this.state.isOpenPalm;
         }
 
         this.drawPipOverlay();
@@ -324,7 +416,6 @@ export class VisionController {
         this.busy = true;
         frameCounter++;
 
-        // Run hands and pose in parallel (pose every 2nd frame for low CPU overhead)
         const jobs: Promise<void>[] = [];
         if (this.hands) jobs.push(this.hands.send({ image: this.videoEl }));
         if (this.pose && frameCounter % 2 === 0) jobs.push(this.pose.send({ image: this.videoEl }));
@@ -345,6 +436,7 @@ export class VisionController {
         tiltMoveDir: 0,
         isFist: false,
         isOpenPalm: false,
+        isShieldRaised: false,
         armTarget: { ...DEFAULT_ARM_TARGET },
       };
       onUpdate(this.state);
@@ -378,7 +470,9 @@ export class VisionController {
     this.prevFist = false;
     this.pendingAttackEdge = false;
     this.prevArmWrist = null;
+    this.prevHandWrist = null;
     this.latestArmPoints = null;
+    this.latestOffArmPoints = null;
     this.latestHandLandmarks = null;
   }
 }

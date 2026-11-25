@@ -85,6 +85,7 @@ export default function App() {
     tiltMoveDir: 0,
     isFist: false,
     isOpenPalm: false,
+    isShieldRaised: false,
     armTarget: {
       hasArm: false,
       shoulderPitch: -0.45,
@@ -221,7 +222,7 @@ export default function App() {
         const guardHeld =
           keys.has('KeyE') ||
           rightMouseHeldRef.current ||
-          Boolean(cvSnap && cvSnap.active && cvSnap.isOpenPalm);
+          Boolean(cvSnap && cvSnap.active && (cvSnap.isShieldRaised || cvSnap.isOpenPalm));
 
         const prevPlayerHp = state.player.hp;
         const prevBotHp = state.bot.hp;
@@ -248,30 +249,30 @@ export default function App() {
               break;
             case 'HIT_BOT':
               sfxRef.current.hit(Boolean(ev.heavy));
-              handle.spawnSparkBurst(ev.x, ev.y, 0x06b6d4, ev.heavy ? 24 : 16, 8.5);
-              if (ev.heavy) handle.spawnShockwave(ev.x, ev.y, 0x06b6d4);
+              handle.spawnSparkBurst(ev.x, ev.y, 0xfbbf24, ev.heavy ? 22 : 14, 8.5);
+              if (ev.heavy) handle.spawnShockwave(ev.x, ev.y, 0xf59e0b);
               if (ev.label) pushCallout(ev.label, ev.heavy ? 'amber' : 'cyan');
               break;
             case 'HIT_PLAYER':
               sfxRef.current.hit(true);
-              handle.spawnSparkBurst(ev.x, ev.y, 0xf43f5e, 22, 8.0);
-              handle.spawnShockwave(ev.x, ev.y, 0xf43f5e);
+              handle.spawnSparkBurst(ev.x, ev.y, 0xdc2626, 20, 8.0);
+              handle.spawnShockwave(ev.x, ev.y, 0xef4444);
               if (ev.label) pushCallout(ev.label, 'rose');
               break;
             case 'CLASH_BLOCK':
               sfxRef.current.clash(false);
-              handle.spawnSparkBurst(ev.x, ev.y, 0xfbbf24, 16, 7.5);
+              handle.spawnSparkBurst(ev.x, ev.y, 0xfde68a, 18, 7.8);
               if (ev.label) pushCallout(ev.label, 'amber');
               break;
             case 'PERFECT_PARRY':
               sfxRef.current.clash(true);
-              handle.spawnSparkBurst(ev.x, ev.y, 0x67e8f9, 28, 10.5);
-              handle.spawnShockwave(ev.x, ev.y, 0x67e8f9);
+              handle.spawnSparkBurst(ev.x, ev.y, 0xfef08a, 28, 10.5);
+              handle.spawnShockwave(ev.x, ev.y, 0xfbbf24);
               if (ev.label) pushCallout(ev.label, 'cyan');
               break;
             case 'DASH':
               sfxRef.current.dash();
-              handle.spawnSparkBurst(ev.x, 0.35, 0x38bdf8, 8, 4.5);
+              handle.spawnSparkBurst(ev.x, 0.25, 0xd6b47e, 10, 4.2);
               break;
             case 'VICTORY':
               sfxRef.current.finish(true);

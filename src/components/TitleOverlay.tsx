@@ -14,11 +14,11 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
   onOpenAudit,
 }) => {
   return (
-    <div className="fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-6 md:p-12 bg-gradient-to-r from-[#060913]/92 via-[#060913]/45 to-transparent">
-      {/* Asymmetric Left-Third Composition over Orbital 3D Arena */}
+    <div className="fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-6 md:p-12 bg-gradient-to-r from-[#140d07]/90 via-[#140d07]/48 to-transparent">
+      {/* Asymmetric Left-Third Composition over Wide-Angle 80 AD Colosseum */}
       <div className="my-auto max-w-md pointer-events-auto">
         <div className="mb-5 flex items-center gap-3">
-          {/* Custom Inline SVG Crest Emblem */}
+          {/* Custom Inline SVG Roman Aquila Crest Emblem */}
           <svg
             viewBox="0 0 48 48"
             className="w-11 h-11 shrink-0"
@@ -26,34 +26,34 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
           >
             <polygon
               points="24,2 44,14 44,34 24,46 4,34 4,14"
-              fill="#0b1324"
-              stroke="#06b6d4"
+              fill="#24160b"
+              stroke="#f59e0b"
               strokeWidth="2.2"
             />
             <path
               d="M24 9 L28 28 L24 37 L20 28 Z"
-              fill="#06b6d4"
+              fill="#fbbf24"
             />
             <path
               d="M15 27 L33 27"
-              stroke="#f59e0b"
+              stroke="#e11d48"
               strokeWidth="2.6"
               strokeLinecap="round"
             />
           </svg>
           <div>
-            <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-slate-50 leading-none">
+            <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-amber-50 leading-none">
               AETHER BLADE
             </h1>
-            <p className="text-xs font-mono-num tracking-widest text-cyan-400 mt-1.5">
-              3D PVP SWORD COMBAT
+            <p className="text-xs font-mono-num tracking-widest text-amber-400 mt-1.5">
+              ROME 80 AD · COLOSSEUM ARENA
             </p>
           </div>
         </div>
 
-        <p className="text-sm md:text-base text-slate-300 leading-relaxed mb-7 max-w-sm">
-          Phase-synchronized 3D sword dueling with zero-delay blade contact,
-          timed energy parries, and articulated cyber-knight kinematics.
+        <p className="text-sm md:text-base text-amber-100/90 leading-relaxed mb-7 max-w-sm">
+          Step onto the sunlit sands of the Flavian Amphitheatre with zero-delay
+          gladius strikes, scutum shield parries, and live arm tracking.
         </p>
 
         {/* <= 3 Menu Actions Total */}
@@ -62,7 +62,7 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
             type="button"
             data-start="true"
             onClick={onStart}
-            className="w-full py-3.5 px-6 rounded-md bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600 text-slate-950 font-display font-bold text-base tracking-wide transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 whitespace-nowrap"
+            className="w-full py-3.5 px-6 rounded-md bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-stone-950 font-display font-bold text-base tracking-wide transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 whitespace-nowrap"
           >
             Start Duel
           </button>
@@ -72,10 +72,10 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
               type="button"
               onClick={onToggleVision}
               aria-pressed={visionEnabled}
-              className={`py-2.5 px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate focus-visible:outline-2 focus-visible:outline-cyan-400 ${
+              className={`py-2.5 px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate focus-visible:outline-2 focus-visible:outline-amber-400 ${
                 visionEnabled
-                  ? 'bg-cyan-950/90 border-cyan-400 text-cyan-200'
-                  : 'bg-[#0b1221]/90 border-slate-700 text-slate-200 hover:border-slate-500'
+                  ? 'bg-amber-950/90 border-amber-400 text-amber-200'
+                  : 'bg-[#1a1109]/92 border-amber-900/70 text-amber-100 hover:border-amber-500/70'
               }`}
             >
               {visionEnabled ? 'Input: Webcam CV' : 'Input: Keys & Mouse'}
@@ -84,7 +84,7 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
             <button
               type="button"
               onClick={onOpenAudit}
-              className="py-2.5 px-3 rounded-md border border-slate-700 bg-[#0b1221]/90 hover:border-amber-400/70 text-slate-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="py-2.5 px-3 rounded-md border border-amber-900/70 bg-[#1a1109]/92 hover:border-amber-400/70 text-amber-100 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate focus-visible:outline-2 focus-visible:outline-amber-400"
             >
               Delay & 3D Audit
             </button>
@@ -92,16 +92,16 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
         </div>
       </div>
 
-      {/* Flat Borderless Control Hint in Bottom Safe Margin */}
-      <div className="text-xs text-slate-400 tracking-wide">
+      {/* High-Contrast Control Hint over Sunlit Arena Sand */}
+      <div className="self-start text-xs text-amber-100 bg-[#140d07]/80 px-3 py-1.5 rounded-md tracking-wide">
         <span>A / D Move</span>
-        <span className="mx-2 text-slate-600">·</span>
+        <span className="mx-2 text-amber-500/70">·</span>
         <span>Shift Dash</span>
-        <span className="mx-2 text-slate-600">·</span>
+        <span className="mx-2 text-amber-500/70">·</span>
         <span>Space / Click Strike</span>
-        <span className="mx-2 text-slate-600">·</span>
+        <span className="mx-2 text-amber-500/70">·</span>
         <span>E / Right-Click Parry</span>
-        <span className="mx-2 text-slate-600">·</span>
+        <span className="mx-2 text-amber-500/70">·</span>
         <span>Enter / Space to Start</span>
       </div>
     </div>

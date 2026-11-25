@@ -13,6 +13,23 @@ export interface ArmTrackingTarget {
   armSpeed: number;      // normalized speed for swing detection
 }
 
+export interface ArmGestureInput {
+  swordShoulder?: Landmark2D;
+  swordWrist?: Landmark2D;
+  offShoulder?: Landmark2D;
+  offWrist?: Landmark2D;
+  handWrist?: Landmark2D;
+  armSpeed: number;
+  isOpenPalm: boolean;
+  isFist: boolean;
+  justClosedFist: boolean;
+}
+
+export interface ArmGestureResult {
+  isShieldRaised: boolean;
+  shouldSwing: boolean;
+}
+
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
 }
@@ -34,7 +51,7 @@ export function computeBodyMoveDir(rawShoulderCenterX: number, deadzone = 0.05):
 /**
  * Computes articulated sword-arm joint targets from MediaPipe Pose + Hand landmarks.
  * Supports mirrored webcam coordinates so raising/extending/tilting your real arm & fist
- * maps intuitively to the 3D Cyber Knight's sword arm.
+ * maps intuitively to the 3D Gladiator's sword arm.
  */
 export function computeArmTrackingAngles(
   shoulder: Landmark2D | undefined,
@@ -79,7 +96,7 @@ export function computeArmTrackingAngles(
   // Forward extension of wrist relative to shoulder
   const relWristX = clamp((wx - sx) / (upperLen + foreLen), -0.8, 1);
 
-  // Map elevation & reach to knight shoulder pitch (negative X rotates arm forward/up)
+  // Map elevation & reach to gladiator shoulder pitch (negative X rotates arm forward/up)
   const shoulderPitch = clamp(-0.95 + relWristY * 1.15 - relWristX * 0.45, -2.2, 0.55);
 
   // Lateral abduction (shoulder roll)
@@ -114,5 +131,49 @@ export function computeArmTrackingAngles(
     elbowBend,
     wristTwist,
     armSpeed,
+  };
+}
+
+/**
+ * Classifies raised-hand shield guard vs arm-swing sword strike:
+ * - Raising either hand/arm up (near or above shoulder height) while held steady raises the shield!
+ * - Swinging the arm briskly triggers a sword strike (and releases single-arm guard).
+ */
+export function evaluateArmGestures(input: ArmGestureInput): ArmGestureResult {
+  const SWING_SPEED_THRESHOLD = 1.6;
+  const STEADY_GUARD_MAX_SPEED = 1.45;
+
+  const isSwingingArm = input.armSpeed >= SWING_SPEED_THRESHOLD;
+
+  const swordHandY = input.swordWrist?.y ?? input.handWrist?.y;
+  const swordArmRaised =
+    input.swordShoulder !== undefined &&
+    swordHandY !== undefined &&
+    swordHandY <= input.swordShoulder.y + 0.04;
+
+  const offArmVisible =
+    input.offShoulder !== undefined &&
+    input.offWrist !== undefined &&
+    (input.offWrist.visibility ?? 1) > 0.35;
+  const offArmRaised =
+    offArmVisible && input.offWrist!.y <= input.offShoulder!.y + 0.06;
+
+  // Fallback when Pose isn't detecting shoulders yet: raising hand high in top half of frame
+  const handHighWithoutPose =
+    input.swordShoulder === undefined &&
+    input.handWrist !== undefined &&
+    input.handWrist.y < 0.42;
+
+  const isShieldRaised =
+    offArmRaised ||
+    ((swordArmRaised || handHighWithoutPose || input.isOpenPalm) &&
+      input.armSpeed < STEADY_GUARD_MAX_SPEED);
+
+  const shouldSwing =
+    isSwingingArm || (input.justClosedFist && !swordArmRaised && !offArmRaised);
+
+  return {
+    isShieldRaised,
+    shouldSwing,
   };
 }

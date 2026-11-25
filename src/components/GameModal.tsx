@@ -48,8 +48,8 @@ export const GameModal: React.FC<GameModalProps> = ({
           {isPause
             ? 'Simulation suspended'
             : isVictory
-            ? 'Shadow Ronin neutralized in the arena'
-            : 'Your cyber-knight fell in combat'}
+            ? 'Secutor defeated before the roaring Colosseum'
+            : 'Your gladiator fell upon the arena sands'}
         </p>
 
         {/* 3 Tabular Stat Tiles */}
