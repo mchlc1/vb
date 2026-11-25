@@ -20,10 +20,12 @@ interface SparkParticle {
 }
 
 interface EmberMote {
-  angle: number;
-  radius: number;
+  x: number;
+  z: number;
   y: number;
+  baseY: number;
   speed: number;
+  phase: number;
   scale: number;
 }
 
@@ -67,7 +69,7 @@ export function mountArenaScene(
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.16;
+  renderer.toneMappingExposure = 1.15;
   renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
   renderer.shadowMap.enabled = !isSoftwareGl;
@@ -79,18 +81,20 @@ export function mountArenaScene(
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x060913);
-  scene.fog = new THREE.FogExp2(0x060913, 0.024);
+  // Dusk Roman twilight sky + matched horizon fog
+  const SKY_COLOR = 0x101624;
+  scene.background = new THREE.Color(SKY_COLOR);
+  scene.fog = new THREE.FogExp2(SKY_COLOR, 0.017);
 
   const camera = new THREE.PerspectiveCamera(
     46,
     (container.clientWidth || window.innerWidth) / (container.clientHeight || window.innerHeight),
     0.1,
-    130
+    150
   );
-  camera.position.set(0, 3.3, 9.2);
+  camera.position.set(0, 3.4, 9.4);
 
-  // Studio Environment Reflections (PMREM + RoomEnvironment) on all devices
+  // Studio Environment Reflections (PMREM + RoomEnvironment)
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
   const roomEnv = new RoomEnvironment();
   const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
@@ -98,38 +102,38 @@ export function mountArenaScene(
   roomEnv.dispose();
   pmremGenerator.dispose();
 
-  // Warm/Cool 3-Point Lighting Rig + Subtle Arena Side Glows
-  const hemiLight = new THREE.HemisphereLight(0x7dd3fc, 0x1e1b2e, 0.78);
+  // Warm Golden Sun Key Light + Cool Twilight Sky Fill + Torchlight Accents
+  const hemiLight = new THREE.HemisphereLight(0x8bb4e8, 0x4b3824, 0.88);
   scene.add(hemiLight);
 
-  const keyLight = new THREE.DirectionalLight(0xfff1db, 2.15);
-  keyLight.position.set(6, 14, 7);
+  const keyLight = new THREE.DirectionalLight(0xffe0b2, 2.2);
+  keyLight.position.set(8, 16, 9);
   keyLight.castShadow = !isSoftwareGl;
   keyLight.shadow.mapSize.set(1024, 1024);
   keyLight.shadow.camera.near = 1;
-  keyLight.shadow.camera.far = 34;
-  keyLight.shadow.camera.left = -10;
-  keyLight.shadow.camera.right = 10;
-  keyLight.shadow.camera.top = 10;
-  keyLight.shadow.camera.bottom = -10;
+  keyLight.shadow.camera.far = 40;
+  keyLight.shadow.camera.left = -12;
+  keyLight.shadow.camera.right = 12;
+  keyLight.shadow.camera.top = 12;
+  keyLight.shadow.camera.bottom = -12;
   keyLight.shadow.bias = -0.0005;
   keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight);
 
-  const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.45);
-  rimLight.position.set(-7, 7, -10);
+  const rimLight = new THREE.DirectionalLight(0x7dd3fc, 1.15);
+  rimLight.position.set(-9, 8, -11);
   scene.add(rimLight);
 
-  // Two opposing corner accent lights (cyan left / crimson right)
-  const cyanCornerLight = new THREE.PointLight(0x06b6d4, 5.5, 18, 2);
-  cyanCornerLight.position.set(-6.5, 2.2, -3.5);
-  scene.add(cyanCornerLight);
+  // Warm torchlight pools inside the Colosseum arcades
+  const torchLightLeft = new THREE.PointLight(0xff922b, 7.5, 22, 1.6);
+  torchLightLeft.position.set(-8.5, 3.6, -5.5);
+  scene.add(torchLightLeft);
 
-  const crimsonCornerLight = new THREE.PointLight(0xf43f5e, 5.5, 18, 2);
-  crimsonCornerLight.position.set(6.5, 2.2, -3.5);
-  scene.add(crimsonCornerLight);
+  const torchLightRight = new THREE.PointLight(0xff922b, 7.5, 22, 1.6);
+  torchLightRight.position.set(8.5, 3.6, -5.5);
+  scene.add(torchLightRight);
 
-  // Procedural Textures & Upgraded Cyber-Colosseum Arena
+  // Procedural Colosseum Textures
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
   const textures = createProceduralTextures(maxAniso);
 
@@ -144,217 +148,298 @@ export function mountArenaScene(
     return m;
   };
 
-  // Outer continuous obsidian terrain deck (eliminates void drop-off)
-  const outerGroundMat = trackM(
+  // Materials with realistic stone/sand/bronze roughness contrast
+  const travertineMat = trackM(
     new THREE.MeshStandardMaterial({
-      color: 0x070b15,
-      roughness: 0.85,
-      metalness: 0.25,
+      color: 0xffffff,
+      map: textures.travertineMap,
+      bumpMap: textures.travertineBump,
+      bumpScale: 0.035,
+      roughness: 0.82,
+      metalness: 0.05,
     })
   );
-  const outerGround = new THREE.Mesh(trackG(new THREE.CircleGeometry(48, 48)), outerGroundMat);
-  outerGround.rotation.x = -Math.PI / 2;
-  outerGround.position.y = -0.26;
-  outerGround.receiveShadow = !isSoftwareGl;
-  scene.add(outerGround);
 
-  // Tiered Outer Walkway Ring around Combat Plinth
-  const steelDarkMat = trackM(
+  const warmStoneMat = trackM(
     new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      roughness: 0.38,
-      metalness: 0.82,
+      color: 0xa49073,
+      bumpMap: textures.travertineBump,
+      bumpScale: 0.025,
+      roughness: 0.86,
+      metalness: 0.04,
     })
   );
-  const trimMetalMat = trackM(
-    new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.25,
-      metalness: 0.9,
-    })
-  );
-  const outerDeck = new THREE.Mesh(trackG(new THREE.CylinderGeometry(12.2, 12.8, 0.2, 16)), steelDarkMat);
-  outerDeck.position.y = -0.18;
-  outerDeck.receiveShadow = !isSoftwareGl;
-  scene.add(outerDeck);
 
-  // Glowing Abyssal Moat Channel separating walkway and combat plinth
-  const moatMat = trackM(
+  const bronzeMat = trackM(
+    new THREE.MeshStandardMaterial({
+      color: 0x7c5828,
+      roughness: 0.34,
+      metalness: 0.86,
+    })
+  );
+
+  const flameMat = trackM(
     new THREE.MeshBasicMaterial({
-      color: 0x0891b2,
+      color: 0xff6b00,
       transparent: true,
-      opacity: 0.65,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      opacity: 0.9,
+      depthWrite: false,
     })
   );
-  const energyMoat = new THREE.Mesh(trackG(new THREE.RingGeometry(8.68, 9.45, 48)), moatMat);
-  energyMoat.rotation.x = -Math.PI / 2;
-  energyMoat.position.y = -0.055;
-  scene.add(energyMoat);
 
-  // Elevated Octagonal Combat Plinth (top surface exactly y = 0)
-  const plinthMat = trackM(
+  // 1. Extended Earth Ground Plane (prevents floating in empty void)
+  const earthMat = trackM(
+    new THREE.MeshStandardMaterial({
+      color: 0x221b14,
+      roughness: 0.94,
+      metalness: 0.02,
+    })
+  );
+  const outerEarth = new THREE.Mesh(trackG(new THREE.CircleGeometry(65, 48)), earthMat);
+  outerEarth.rotation.x = -Math.PI / 2;
+  outerEarth.position.y = -0.18;
+  outerEarth.receiveShadow = !isSoftwareGl;
+  scene.add(outerEarth);
+
+  // 2. Compacted Gladiator Sand Combat Pit (top surface exactly y = 0)
+  const sandFloorMat = trackM(
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
       map: textures.arenaFloorMap,
       bumpMap: textures.arenaFloorBump,
-      bumpScale: 0.015,
-      roughness: 0.4,
-      metalness: 0.58,
+      bumpScale: 0.02,
+      roughness: 0.88,
+      metalness: 0.04,
     })
   );
-  const plinth = new THREE.Mesh(trackG(new THREE.CylinderGeometry(8.6, 9.1, 0.24, 8)), plinthMat);
-  plinth.position.y = -0.12;
-  plinth.receiveShadow = !isSoftwareGl;
-  scene.add(plinth);
+  const sandFloor = new THREE.Mesh(trackG(new THREE.CylinderGeometry(9.1, 9.2, 0.24, 48)), sandFloorMat);
+  sandFloor.position.y = -0.12;
+  sandFloor.receiveShadow = !isSoftwareGl;
+  scene.add(sandFloor);
 
-  // Beveled Stepped Plinth Rim
-  const plinthRim = new THREE.Mesh(trackG(new THREE.TorusGeometry(8.62, 0.11, 8, 8)), trimMetalMat);
-  plinthRim.rotation.x = Math.PI / 2;
-  plinthRim.rotation.z = Math.PI / 8;
-  plinthRim.position.y = 0.01;
-  scene.add(plinthRim);
+  // Carved Stone Arena Curb Ring around the sand pit
+  const curbRing = new THREE.Mesh(trackG(new THREE.TorusGeometry(9.05, 0.18, 10, 48)), warmStoneMat);
+  curbRing.rotation.x = Math.PI / 2;
+  curbRing.position.y = 0.04;
+  scene.add(curbRing);
 
-  // Glowing Combat Perimeter Ring & Center Engagement Lane
-  const ringMat = trackM(
-    new THREE.MeshBasicMaterial({
-      color: 0x06b6d4,
-      transparent: true,
-      opacity: 0.52,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    })
-  );
-  const perimeterRing = new THREE.Mesh(trackG(new THREE.RingGeometry(6.88, 7.0, 64)), ringMat);
-  perimeterRing.rotation.x = -Math.PI / 2;
-  perimeterRing.position.y = 0.012;
-  scene.add(perimeterRing);
-
-  // Dynamic Duel Midpoint Floor Reticle
+  // Subtle Bronze Combat Midpoint Reticle on the sand
   const reticleMat = trackM(
     new THREE.MeshBasicMaterial({
       color: 0xf59e0b,
       transparent: true,
-      opacity: 0.36,
+      opacity: 0.34,
       polygonOffset: true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
     })
   );
-  const duelReticle = new THREE.Mesh(trackG(new THREE.RingGeometry(1.15, 1.24, 32)), reticleMat);
+  const duelReticle = new THREE.Mesh(trackG(new THREE.RingGeometry(1.12, 1.22, 32)), reticleMat);
   duelReticle.rotation.x = -Math.PI / 2;
   duelReticle.position.y = 0.015;
   scene.add(duelReticle);
 
-  // 6 Rear Curved Parapet Barrier Walls along the Far Arc (never occludes front camera!)
-  const barrierMat = trackM(
-    new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.48,
-      metalness: 0.72,
-    })
-  );
-  const barrierRailMat = trackM(
-    new THREE.MeshStandardMaterial({
-      color: 0xf59e0b,
-      emissive: 0xf59e0b,
-      emissiveIntensity: 1.35,
-      roughness: 0.25,
-    })
-  );
-  const barrierGeo = trackG(new THREE.BoxGeometry(3.2, 0.88, 0.32));
-  const barrierRailGeo = trackG(new THREE.BoxGeometry(2.9, 0.09, 0.36));
+  // 3. Colosseum Podium Wall + 3 Stepped Amphitheater Seating Tiers (Cavea)
+  // Spans the rear & flank 235° arc (-Z hemisphere + sides) so front camera at +Z is never blocked
+  const ARC_START = Math.PI * 0.34;
+  const ARC_END = Math.PI * 1.66;
+  const ARC_SPAN = ARC_END - ARC_START;
 
-  for (let i = 0; i < 6; i++) {
-    const angle = Math.PI + ((i - 2.5) / 5.2) * Math.PI * 0.92; // Rear arc (-Z hemisphere)
-    const r = 9.85;
-    const x = Math.sin(angle) * r;
-    const z = Math.cos(angle) * r;
-    const wallGroup = new THREE.Group();
-    wallGroup.position.set(x, 0.36, z);
-    wallGroup.rotation.y = angle;
+  const PODIUM_SEGMENTS = 24;
+  const podiumWallGeo = trackG(new THREE.BoxGeometry(2.08, 1.25, 0.92));
+  const podiumInst = new THREE.InstancedMesh(podiumWallGeo, travertineMat, PODIUM_SEGMENTS);
+  podiumInst.castShadow = !isSoftwareGl;
+  podiumInst.receiveShadow = !isSoftwareGl;
 
-    const wallMesh = new THREE.Mesh(barrierGeo, barrierMat);
-    wallMesh.castShadow = !isSoftwareGl;
-    wallMesh.receiveShadow = !isSoftwareGl;
-    wallGroup.add(wallMesh);
-
-    const railMesh = new THREE.Mesh(barrierRailGeo, barrierRailMat);
-    railMesh.position.y = 0.38;
-    wallGroup.add(railMesh);
-
-    scene.add(wallGroup);
-  }
-
-  // 8 Multi-Part Architectural Colosseum Pylons (Pedestal + Column + Conduit + Crown)
-  const pylonCount = 8;
-  const pylonBaseGeo = trackG(new THREE.BoxGeometry(1.25, 0.6, 1.25));
-  const pylonBodyGeo = trackG(new THREE.BoxGeometry(0.76, 5.2, 0.76));
-  const pylonStripGeo = trackG(new THREE.BoxGeometry(0.16, 4.4, 0.82));
-  const pylonCapGeo = trackG(new THREE.BoxGeometry(1.15, 0.36, 1.15));
-
-  const pylonStripMat = trackM(
-    new THREE.MeshStandardMaterial({
-      color: 0x06b6d4,
-      emissive: 0x06b6d4,
-      emissiveIntensity: 1.65,
-      roughness: 0.2,
-    })
-  );
-
-  const pylonBaseInst = new THREE.InstancedMesh(pylonBaseGeo, trimMetalMat, pylonCount);
-  const pylonInst = new THREE.InstancedMesh(pylonBodyGeo, steelDarkMat, pylonCount);
-  const stripInst = new THREE.InstancedMesh(pylonStripGeo, pylonStripMat, pylonCount);
-  const pylonCapInst = new THREE.InstancedMesh(pylonCapGeo, trimMetalMat, pylonCount);
-  pylonInst.castShadow = !isSoftwareGl;
-  pylonInst.receiveShadow = !isSoftwareGl;
-
-  for (let i = 0; i < pylonCount; i++) {
-    const angle = (i / pylonCount) * Math.PI * 2 + Math.PI / 8;
-    const radius = 10.9;
-    const px = Math.cos(angle) * radius;
-    const pz = Math.sin(angle) * radius;
-
-    _dummyObj.position.set(px, 0.12, pz);
-    _dummyObj.rotation.set(0, -angle, 0);
+  for (let i = 0; i < PODIUM_SEGMENTS; i++) {
+    const t = i / (PODIUM_SEGMENTS - 1);
+    const angle = ARC_START + t * ARC_SPAN;
+    const r = 9.5;
+    _dummyObj.position.set(Math.sin(angle) * r, 0.54, Math.cos(angle) * r);
+    _dummyObj.rotation.set(0, angle, 0);
     _dummyObj.scale.set(1, 1, 1);
     _dummyObj.updateMatrix();
-    pylonBaseInst.setMatrixAt(i, _dummyObj.matrix);
-
-    _dummyObj.position.set(px, 2.48, pz);
-    _dummyObj.updateMatrix();
-    pylonInst.setMatrixAt(i, _dummyObj.matrix);
-    stripInst.setMatrixAt(i, _dummyObj.matrix);
-
-    _dummyObj.position.set(px, 5.15, pz);
-    _dummyObj.updateMatrix();
-    pylonCapInst.setMatrixAt(i, _dummyObj.matrix);
+    podiumInst.setMatrixAt(i, _dummyObj.matrix);
   }
-  pylonBaseInst.computeBoundingSphere();
-  pylonInst.computeBoundingSphere();
-  stripInst.computeBoundingSphere();
-  pylonCapInst.computeBoundingSphere();
-  scene.add(pylonBaseInst);
-  scene.add(pylonInst);
-  scene.add(stripInst);
-  scene.add(pylonCapInst);
+  podiumInst.computeBoundingSphere();
+  scene.add(podiumInst);
 
-  // Overhead Dual-Halo Colosseum Crown Rings
-  const crownOuter = new THREE.Mesh(trackG(new THREE.TorusGeometry(10.9, 0.16, 10, 48)), trimMetalMat);
-  crownOuter.rotation.x = Math.PI / 2;
-  crownOuter.position.y = 5.25;
-  scene.add(crownOuter);
-
-  const crownInner = new THREE.Mesh(
-    trackG(new THREE.TorusGeometry(10.45, 0.06, 8, 48)),
-    pylonStripMat
+  // 3 Stepped Spectator Seating Tiers (Cavea)
+  const TIER_RADII = [10.7, 12.1, 13.5];
+  const TIER_HEIGHTS = [1.45, 2.35, 3.25];
+  const TIER_SEGMENTS = 26;
+  const seatBlockGeo = trackG(new THREE.BoxGeometry(2.42, 1.1, 1.55));
+  const seatInst = new THREE.InstancedMesh(
+    seatBlockGeo,
+    warmStoneMat,
+    TIER_RADII.length * TIER_SEGMENTS
   );
-  crownInner.rotation.x = Math.PI / 2;
-  crownInner.position.y = 5.05;
-  scene.add(crownInner);
+  seatInst.castShadow = !isSoftwareGl;
+  seatInst.receiveShadow = !isSoftwareGl;
+
+  let seatIdx = 0;
+  for (let tier = 0; tier < TIER_RADII.length; tier++) {
+    const r = TIER_RADII[tier];
+    const h = TIER_HEIGHTS[tier];
+    for (let i = 0; i < TIER_SEGMENTS; i++) {
+      const t = i / (TIER_SEGMENTS - 1);
+      const angle = ARC_START + t * ARC_SPAN;
+      _dummyObj.position.set(Math.sin(angle) * r, h - 0.55, Math.cos(angle) * r);
+      _dummyObj.rotation.set(0, angle, 0);
+      _dummyObj.scale.set(1, 1, 1);
+      _dummyObj.updateMatrix();
+      seatInst.setMatrixAt(seatIdx++, _dummyObj.matrix);
+    }
+  }
+  seatInst.computeBoundingSphere();
+  scene.add(seatInst);
+
+  // 4. Iconic 2-Tier Roman Colosseum Arched Colonnade Facade (Piers + Semi-Circular Arches + Cornices)
+  const BAY_COUNT = 14;
+  const FACADE_RADIUS = 15.1;
+  const PIER_COUNT = BAY_COUNT + 1;
+
+  // Lower & Upper Travertine Piers (2 tiers = 30 piers)
+  const pierGeo = trackG(new THREE.BoxGeometry(0.95, 3.85, 1.25));
+  const pierInst = new THREE.InstancedMesh(pierGeo, travertineMat, PIER_COUNT * 2);
+  pierInst.castShadow = !isSoftwareGl;
+  pierInst.receiveShadow = !isSoftwareGl;
+
+  // Semi-circular Roman Arches spanning flush between piers (2 tiers = 28 arches)
+  const archGeo = trackG(new THREE.TorusGeometry(1.36, 0.28, 8, 18, Math.PI));
+  const archInst = new THREE.InstancedMesh(archGeo, travertineMat, BAY_COUNT * 2);
+  archInst.castShadow = !isSoftwareGl;
+
+  // Warm shadowed alcove backdrop ONLY on Tier 1 so Tier 2 arches open dramatically to the twilight sky!
+  const arcadeBackdropGeo = trackG(new THREE.BoxGeometry(2.85, 3.7, 0.2));
+  const arcadeBackdropMat = trackM(
+    new THREE.MeshStandardMaterial({
+      color: 0x24170f,
+      emissive: 0x3b1503,
+      emissiveIntensity: 0.7,
+      roughness: 0.92,
+    })
+  );
+  const backdropInst = new THREE.InstancedMesh(arcadeBackdropGeo, arcadeBackdropMat, BAY_COUNT);
+
+  let pIdx = 0;
+  for (let tier = 0; tier < 2; tier++) {
+    const baseY = tier === 0 ? 3.55 : 7.35;
+    for (let i = 0; i < PIER_COUNT; i++) {
+      const t = i / (PIER_COUNT - 1);
+      const angle = ARC_START + t * ARC_SPAN;
+      _dummyObj.position.set(
+        Math.sin(angle) * FACADE_RADIUS,
+        baseY + 1.85,
+        Math.cos(angle) * FACADE_RADIUS
+      );
+      _dummyObj.rotation.set(0, angle, 0);
+      _dummyObj.scale.set(1, 1, 1);
+      _dummyObj.updateMatrix();
+      pierInst.setMatrixAt(pIdx++, _dummyObj.matrix);
+    }
+  }
+  pierInst.computeBoundingSphere();
+  scene.add(pierInst);
+
+  let aIdx = 0;
+  for (let tier = 0; tier < 2; tier++) {
+    const archY = tier === 0 ? 5.65 : 9.45;
+    for (let i = 0; i < BAY_COUNT; i++) {
+      const t = (i + 0.5) / BAY_COUNT;
+      const angle = ARC_START + t * ARC_SPAN;
+
+      _dummyObj.position.set(
+        Math.sin(angle) * FACADE_RADIUS,
+        archY,
+        Math.cos(angle) * FACADE_RADIUS
+      );
+      _dummyObj.rotation.set(0, angle, 0);
+      _dummyObj.scale.set(1, 1, 1);
+      _dummyObj.updateMatrix();
+      archInst.setMatrixAt(aIdx, _dummyObj.matrix);
+
+      if (tier === 0) {
+        _dummyObj.position.set(
+          Math.sin(angle) * (FACADE_RADIUS + 0.72),
+          5.35,
+          Math.cos(angle) * (FACADE_RADIUS + 0.72)
+        );
+        _dummyObj.updateMatrix();
+        backdropInst.setMatrixAt(i, _dummyObj.matrix);
+      }
+      aIdx++;
+    }
+  }
+  archInst.computeBoundingSphere();
+  backdropInst.computeBoundingSphere();
+  scene.add(archInst);
+  scene.add(backdropInst);
+
+  // Carved Horizontal Entablature Cornice Bands across the Colosseum Facade
+  const corniceGeo = trackG(
+    new THREE.CylinderGeometry(
+      FACADE_RADIUS + 0.65,
+      FACADE_RADIUS + 0.65,
+      0.42,
+      36,
+      1,
+      true,
+      ARC_START - 0.04,
+      ARC_SPAN + 0.08
+    )
+  );
+  const corniceMat = trackM(
+    new THREE.MeshStandardMaterial({
+      color: 0xcab99c,
+      roughness: 0.75,
+      metalness: 0.08,
+      side: THREE.DoubleSide,
+    })
+  );
+  for (const cy of [3.5, 7.25, 11.05]) {
+    const cornice = new THREE.Mesh(corniceGeo, corniceMat);
+    cornice.position.y = cy;
+    scene.add(cornice);
+  }
+
+  // 5. Six Gladiator Torch Braziers along the Podium Rim (Multi-part Stone + Bronze Bowl + Flame)
+  const BRAZIER_COUNT = 6;
+  const flameMeshes: THREE.Mesh[] = [];
+  const emberAnchors: { x: number; z: number }[] = [];
+
+  const brazierPedestalGeo = trackG(new THREE.CylinderGeometry(0.32, 0.42, 0.9, 8));
+  const brazierBowlGeo = trackG(new THREE.CylinderGeometry(0.46, 0.22, 0.34, 12));
+  const flameGeo = trackG(new THREE.ConeGeometry(0.24, 0.68, 8));
+
+  for (let i = 0; i < BRAZIER_COUNT; i++) {
+    const t = i / (BRAZIER_COUNT - 1);
+    const angle = Math.PI * 0.44 + t * (Math.PI * 1.12);
+    const r = 8.75;
+    const bx = Math.sin(angle) * r;
+    const bz = Math.cos(angle) * r;
+    emberAnchors.push({ x: bx, z: bz });
+
+    const brazier = new THREE.Group();
+    brazier.position.set(bx, 0, bz);
+
+    const ped = new THREE.Mesh(brazierPedestalGeo, warmStoneMat);
+    ped.position.y = 0.45;
+    ped.castShadow = !isSoftwareGl;
+    brazier.add(ped);
+
+    const bowl = new THREE.Mesh(brazierBowlGeo, bronzeMat);
+    bowl.position.y = 1.05;
+    bowl.castShadow = !isSoftwareGl;
+    brazier.add(bowl);
+
+    const flame = new THREE.Mesh(flameGeo, flameMat);
+    flame.position.y = 1.45;
+    brazier.add(flame);
+    flameMeshes.push(flame);
+
+    scene.add(brazier);
+  }
 
   // Fighters: Cyber Knight (Player - Titanium/Cyan) vs Shadow Ronin (Bot - Obsidian/Crimson)
   const playerRig: FighterRig = createCyberKnightRig(
@@ -374,21 +459,26 @@ export function mountArenaScene(
   scene.add(playerRig.root);
   scene.add(botRig.root);
 
-  // Pooled Ambient Arena Embers (36 floating dust motes around perimeter, zero GC)
+  // Pooled Rising Brazier Embers (36 motes, zero GC)
   const EMBER_COUNT = 36;
-  const embers: EmberMote[] = Array.from({ length: EMBER_COUNT }, (_, i) => ({
-    angle: (i / EMBER_COUNT) * Math.PI * 2,
-    radius: 7.5 + (i % 5) * 0.85,
-    y: 0.4 + (i % 7) * 0.65,
-    speed: 0.35 + (i % 4) * 0.14,
-    scale: 0.6 + (i % 3) * 0.28,
-  }));
-  const emberGeo = trackG(new THREE.OctahedronGeometry(0.055, 0));
+  const embers: EmberMote[] = Array.from({ length: EMBER_COUNT }, (_, i) => {
+    const anchor = emberAnchors[i % emberAnchors.length];
+    return {
+      x: anchor.x + ((i % 5) - 2) * 0.08,
+      z: anchor.z + (((i * 3) % 5) - 2) * 0.08,
+      y: 1.5 + (i % 6) * 0.65,
+      baseY: 1.45,
+      speed: 0.65 + (i % 4) * 0.25,
+      phase: i * 1.1,
+      scale: 0.45 + (i % 3) * 0.22,
+    };
+  });
+  const emberGeo = trackG(new THREE.OctahedronGeometry(0.05, 0));
   const emberMat = trackM(
     new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
+      color: 0xffb74d,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.72,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     })
@@ -530,22 +620,28 @@ export function mountArenaScene(
   }
 
   function updateVfx(dt: number, elapsed: number) {
-    // Update ambient arena embers
+    // Flicker torch flames & warm point lights
+    flameMeshes.forEach((flame, idx) => {
+      const flick = 0.85 + Math.sin(elapsed * 14 + idx * 1.9) * 0.16;
+      flame.scale.set(0.95, flick, 0.95);
+    });
+    torchLightLeft.intensity = 7.2 + Math.sin(elapsed * 11) * 1.1;
+    torchLightRight.intensity = 7.2 + Math.cos(elapsed * 12.5) * 1.1;
+
+    // Update rising brazier embers
     for (let i = 0; i < EMBER_COUNT; i++) {
       const m = embers[i];
       m.y += m.speed * dt;
-      m.angle += dt * 0.14;
-      if (m.y > 4.8) m.y = 0.2;
-      _dummyObj.position.set(Math.cos(m.angle) * m.radius, m.y, Math.sin(m.angle) * m.radius);
+      if (m.y > 4.6) m.y = m.baseY;
+      const swayX = Math.sin(elapsed * 2.5 + m.phase) * 0.14;
+      const swayZ = Math.cos(elapsed * 2.1 + m.phase) * 0.14;
+      _dummyObj.position.set(m.x + swayX, m.y, m.z + swayZ);
       _dummyObj.rotation.set(elapsed + i, elapsed * 0.7, 0);
-      _dummyObj.scale.setScalar(m.scale);
+      _dummyObj.scale.setScalar(m.scale * (1 - (m.y - m.baseY) / 3.8));
       _dummyObj.updateMatrix();
       emberMesh.setMatrixAt(i, _dummyObj.matrix);
     }
     emberMesh.instanceMatrix.needsUpdate = true;
-
-    // Subtle moat energy shimmer
-    moatMat.opacity = 0.52 + Math.sin(elapsed * 2.2) * 0.12;
 
     // Update burst sparks
     let anyChanged = false;
@@ -600,7 +696,7 @@ export function mountArenaScene(
     const state = getState();
     const armOverride = getArmOverride?.();
 
-    // Update fighter rigs (player sword arm mirrors live arm+fist override when idle)
+    // Update fighter rigs
     playerRig.updatePose(state.player, dt, elapsed, 1, armOverride);
     botRig.updatePose(state.bot, dt, elapsed, -1);
 
@@ -608,30 +704,30 @@ export function mountArenaScene(
     const midX = (state.player.x + state.bot.x) * 0.5;
     duelReticle.position.x = THREE.MathUtils.damp(duelReticle.position.x, midX, 12, dt);
 
-    // Update particles, embers & shockwaves
+    // Update particles, braziers & shockwaves
     updateVfx(dt, elapsed);
 
-    // Camera choreography: Asymmetric right-2/3 showcase on Title vs Dynamic Duel Framing in Playing
+    // Camera choreography: Asymmetric right-2/3 Colosseum showcase on Title vs Dynamic Duel Framing
     if (state.screen === 'title') {
-      const orbitAngle = 0.48 + Math.sin(elapsed * 0.25) * 0.35;
+      const orbitAngle = 0.42 + Math.sin(elapsed * 0.22) * 0.25;
       _camGoal.set(
-        -1.6 + Math.sin(orbitAngle) * 8.4,
-        2.95 + Math.sin(elapsed * 0.5) * 0.2,
-        Math.cos(orbitAngle) * 8.4
+        -1.6 + Math.sin(orbitAngle) * 8.8,
+        3.05 + Math.sin(elapsed * 0.5) * 0.18,
+        Math.cos(orbitAngle) * 8.8
       );
       camera.position.lerp(_camGoal, 1 - Math.exp(-4 * dt));
-      _camTarget.set(-1.65, 1.35, 0);
+      _camTarget.set(-1.65, 1.55, -0.8);
       camera.lookAt(_camTarget);
     } else {
       const dist = Math.abs(state.bot.x - state.player.x);
-      const zoomZ = THREE.MathUtils.clamp(5.9 + dist * 0.68, 6.8, 10.6);
+      const zoomZ = THREE.MathUtils.clamp(6.1 + dist * 0.68, 7.0, 10.8);
 
-      _camGoal.set(midX * 0.72, 2.65 + (zoomZ - 6.8) * 0.14, zoomZ);
+      _camGoal.set(midX * 0.72, 2.75 + (zoomZ - 7.0) * 0.14, zoomZ);
       camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoal.x, 8, dt);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, _camGoal.y, 8, dt);
       camera.position.z = THREE.MathUtils.damp(camera.position.z, _camGoal.z, 8, dt);
 
-      _camTarget.set(midX, 1.42, 0);
+      _camTarget.set(midX, 1.52, -0.6);
       camera.lookAt(_camTarget);
 
       // Trauma-squared rotational & positional camera shake
@@ -652,11 +748,7 @@ export function mountArenaScene(
     }
   }
 
-  if (isSoftwareGl) {
-    afterDraw(tick);
-  } else {
-    frameId = requestAnimationFrame(tick);
-  }
+  frameId = requestAnimationFrame(tick);
 
   return {
     spawnSparkBurst,
