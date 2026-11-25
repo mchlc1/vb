@@ -1,0 +1,6 @@
+{
+  "name": "Aether Blade 3D — PvP Sword Combat",
+  "description": "Upgraded 3D PvP Sword Combat Arena with phase-synchronized melee hitboxes, articulated cyber-knight kinematics, procedural PBR arena, and low-latency input.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
